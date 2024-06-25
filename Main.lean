@@ -1,3 +1,5 @@
+import Mathlib.Data.Nat.Prime
+
 structure ASer where  -- arithmetic series (k + dn)
   k : Nat  -- constant
   d : Nat  -- difference
@@ -35,25 +37,31 @@ instance : ToString ASer where
 
 def terms (s : ASer) (n : Nat) : List Nat := List.range n |>.map λ i =>ap s i
 
+-- now for primes ------------------------------------------------
+
+def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr
+instance : ToString NPrime where
+  toString s := s!"{s.val}"
+
 structure PrimeSieve where
-  ps : List Nat         -- all primes we've used so far
+  ps : List NPrime      -- all primes we've used so far
   pr : Nat              -- current primorial (product of ps)
-  np : Nat              -- next prime
+  np : NPrime           -- next prime
   ss : List ASer        -- list of sequences
 deriving Repr
 
 instance : ToString PrimeSieve where
   toString s := s!"ps: {s.ps}, pr: {s.pr}, np: {s.np}, ss: {s.ss}"
 
-def init : PrimeSieve := { ps := [], pr := 1, np := 2, ss := [id1] }
+def init : PrimeSieve := { ps := [], pr := 1, np := ⟨2,Nat.prime_two⟩, ss := [id1] }
 
 def step (s0 : PrimeSieve) : PrimeSieve :=
   let ps := s0.ps ++ [s0.np]
-  let pr := s0.pr * s0.np
-  let ss0 := (s0.ss.map fun s => partition s s0.np).join
-  let ss := (ss0.filter fun s => s.k % s0.np != 0)  -- strip out multiples of np
+  let pr := s0.pr * s0.np.val
+  let ss0 := (s0.ss.map fun s => partition s s0.np.val).join
+  let ss := (ss0.filter fun s => s.k % s0.np.val != 0)  -- strip out multiples of np
   let np := (List.minimum? $ ss.map fun s => (let f1:=ap s 0; if f1 == 1 then ap s 1 else f1)).get! -- series with next prime
-  { ps := ps, pr := pr, np := np, ss := ss }
+  { ps := ps, pr := pr, np := ⟨np,sorry⟩, ss := ss }
 
 def printStep (s : PrimeSieve) (n : Nat) : IO Unit := do
   IO.println s
