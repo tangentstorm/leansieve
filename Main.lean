@@ -3,7 +3,7 @@ structure ASer where  -- arithmetic series (k + dn)
   d : Nat  -- difference
 deriving Inhabited, Repr
 
-instance : Ord ASer where  -- but there's no List.sort !!
+instance : Ord ASer where  -- but there's no List.sort? !!
   compare s1 s2 :=
     match compare s1.k s2.k with
     | .eq => compare s1.d s2.d
@@ -51,7 +51,7 @@ def step (s0 : PrimeSieve) : PrimeSieve :=
   let ps := s0.ps ++ [s0.np]
   let pr := s0.pr * s0.np
   let ss0 := (s0.ss.map fun s => partition s s0.np).join
-  let ss := (ss0.filter fun s => s.k % s0.np != 0)  -- the rest of them (TODO: list partition?)
+  let ss := (ss0.filter fun s => s.k % s0.np != 0)  -- strip out multiples of np
   let np := (List.minimum? $ ss.map fun s => (let f1:=ap s 0; if f1 == 1 then ap s 1 else f1)).get! -- series with next prime
   { ps := ps, pr := pr, np := np, ss := ss }
 
@@ -60,7 +60,7 @@ def printStep (s : PrimeSieve) (n : Nat) : IO Unit := do
   s.ss.forM fun s => do
     let width := 15
     let formula := (String.pushn (toString s) ' ' width).take width
-    IO.println s!"{formula}: {(terms s n)}"  -- start with s(1) instead of s(0) so we don't see 1
+    IO.println s!"{formula}: {(terms s n)}"
 
 def main : IO Unit := do
   let mut sv := init
