@@ -21,7 +21,7 @@ def ap (s : ASer) (n : Nat) : Nat := s.k + s.d * n
 def compose (s : ASer) (t : ASer) : ASer := mk (s.k + s.d * t.k) (s.d * t.d)
 
 -- identity series
-def id1 : ASer := mk 0 1
+def ids : ASer := mk 2 1
 
 def partition (s : ASer) (n : Nat) : List ASer :=
   List.range n |>.map fun i => compose s $ mk i n
@@ -53,7 +53,7 @@ deriving Repr
 instance : ToString PrimeSieve where
   toString s := s!"ps: {s.ps}, pr: {s.pr}, np: {s.np}, ss: {s.ss}"
 
-def init : PrimeSieve := { ps := [], pr := 1, np := ⟨2,Nat.prime_two⟩, ss := [id1] }
+def init : PrimeSieve := { ps := [], pr := 1, np := ⟨2,Nat.prime_two⟩, ss := [ids] }
 
 def step (s0 : PrimeSieve) : PrimeSieve :=
   let ps := s0.ps ++ [s0.np]
