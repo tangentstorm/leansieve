@@ -1,33 +1,33 @@
 import Mathlib.Data.Nat.Prime
 import Mathlib.Tactic.Linarith.Frontend
 
-structure ASer where  -- arithmetic series (k + dn)
+structure ASeq where  -- arithmetic sequence (k + dn)
   k : Nat  -- constant
   d : Nat  -- difference
 deriving Inhabited, Repr
 
-instance : Ord ASer where  -- but there's no List.sort? !!
+instance : Ord ASeq where  -- but there's no List.sort? !!
   compare s1 s2 :=
     match compare s1.k s2.k with
     | .eq => compare s1.d s2.d
     | ord => ord
 
 -- mk k d = k + d*n
-def mk (k d : Nat) : ASer := { k := k, d := d }
+def mk (k d : Nat) : ASeq := { k := k, d := d }
 
 -- apply formula to n
-def ap (s : ASer) (n : Nat) : Nat := s.k + s.d * n
+def ap (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
 
 -- apply one formula to another: r(n) := s(t(n))
-def compose (s : ASer) (t : ASer) : ASer := mk (s.k + s.d * t.k) (s.d * t.d)
+def compose (s : ASeq) (t : ASeq) : ASeq := mk (s.k + s.d * t.k) (s.d * t.d)
 
 -- identity series
-def ids : ASer := mk 2 1
+def ids : ASeq := mk 2 1
 
-def partition (s : ASer) (n : Nat) : List ASer :=
+def partition (s : ASeq) (n : Nat) : List ASeq :=
   List.range n |>.map fun i => compose s $ mk i n
 
-instance : ToString ASer where
+instance : ToString ASeq where
   toString s :=
     if s.k == 0 then
       if s.d == 1 then "n"
@@ -36,7 +36,7 @@ instance : ToString ASer where
     else if s.d == 1 then s!"n + {s.k}"
     else s!"{s.d}n + {s.k}"
 
-def terms (s : ASer) (n : Nat) : List Nat := List.range n |>.map λ i =>ap s i
+def terms (s : ASeq) (n : Nat) : List Nat := List.range n |>.map λ i =>ap s i
 
 -- now for primes ------------------------------------------------
 
@@ -48,7 +48,7 @@ structure PrimeSieve where
   ps : List NPrime      -- all primes we've used so far
   pr : Nat              -- current primorial (product of ps)
   np : NPrime           -- next prime
-  ss : List ASer        -- list of sequences
+  ss : List ASeq        -- list of sequences
 deriving Repr
 
 instance : ToString PrimeSieve where
