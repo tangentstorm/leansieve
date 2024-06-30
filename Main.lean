@@ -64,25 +64,24 @@ def step (s0 : PrimeSieve) : PrimeSieve :=
   let np := (List.minimum? $ ss.map fun s => (let f1:=ap s 0; if f1 == 1 then ap s 1 else f1)).get! -- series with next prime
   { ps := ps, pr := pr, np := ⟨np,sorry⟩, ss := ss }
 
-theorem no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
-  (hcg2: 2 ≤ c)                              -- c is greater than 2
+lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
+  (h2lc: 2 ≤ c)                              -- c is at least 2
   (hnpf: ∀ p < c, Nat.Prime p → ¬(p∣c))      -- c has no prime factors
   : Nat.Prime c := by
-    have hno: ∀ m < c, m ∣ c → m=1 := by  -- c has no divisors at all
-      intros m hmc hmdc -- give names to the above assumptions
-      by_contra hnme1   -- assume ¬(m=1) and show contradiction
-      have hmn1: m ≠ 1 := by assumption
-      -- obtain a prime factor of m since it isn't 1
-      obtain ⟨p, hpp, hpm⟩ : ∃ p, Nat.Prime p ∧ p ∣ m := Nat.exists_prime_and_dvd hmn1
-      have h0: p∣c := Nat.dvd_trans hpm hmdc
-      have h1: ¬(p∣c) := by
-        have hzlc: 0 < c := by linarith
-        have hzlm: 0 < m := Nat.pos_of_dvd_of_pos hmdc hzlc
-        have hplm: p ≤ m := Nat.le_of_dvd hzlm hpm
-        have hplc: p < c := by linarith
-        exact hnpf p hplc hpp
+    have : ∀ m < c, m ∣ c → m=1 := by  -- c has no divisors but 1 and c
+      intro m hmc hmdc  -- give names to the above assumptions
+      by_contra         -- assume ¬(m=1) and show contradiction
+      obtain ⟨p, hpp, hpm⟩ : ∃ p, Nat.Prime p ∧ p ∣ m :=
+        Nat.exists_prime_and_dvd ‹m ≠ 1›
+      have : p∣c := Nat.dvd_trans hpm hmdc
+      have : ¬(p∣c) := by
+        have : 0 < c := by linarith
+        have : 0 < m := Nat.pos_of_dvd_of_pos hmdc this
+        have : p ≤ m := Nat.le_of_dvd this hpm
+        have : p < c := by linarith
+        exact hnpf p this hpp
       contradiction
-    exact Nat.prime_def_lt.mpr ⟨hcg2, hno⟩
+    exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
 -- excetuion ------------------------------------------------
 
