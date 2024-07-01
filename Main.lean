@@ -33,8 +33,8 @@ instance : ToString ASeq where
       if s.d == 1 then "n"
       else s!"{s.d}n"
     else if s.d == 0 then s!"{s.k}"
-    else if s.d == 1 then s!"n + {s.k}"
-    else s!"{s.d}n + {s.k}"
+    else if s.d == 1 then s!"{s.k} + n"
+    else s!"{s.k} + {s.d}n"
 
 def terms (s : ASeq) (n : Nat) : List Nat := List.range n |>.map λ i =>ap s i
 
