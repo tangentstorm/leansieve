@@ -9,6 +9,8 @@ lean_lib Treesiv {
   -- add library configuration options here
 }
 
+lean_lib ASeq { }
+
 --@[defaultTarget]
 --lean_exe treesiv {
 --  root := `Main
