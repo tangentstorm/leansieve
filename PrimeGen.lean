@@ -1,6 +1,5 @@
 -- PrimeGen: a specification for algorithms that generate prime numbers.
 import Mathlib.Data.Nat.Prime
-import Mathlib.Data.Nat.Prime
 import Mathlib.Tactic.Linarith.Frontend
 
 def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr
@@ -34,36 +33,81 @@ def pltC (c:NPrime) (p:NPrime) : Prop := p.val < c.val
 def cpks (ks:Set NPrime) (n:Nat) : Prop :=
   n ≥ 2  ∧ ∀ p ∈ ks, ¬(p.val ∣ n)
 
--- a generic prime sieve
-class PrimeSieve (α : Type u) where
-  -- implement your algorithm in terms of these:
+class PrimeSieveState (α : Type u) where
   C : α → NPrime
   init : α
   next : α → α
+open PrimeSieveState
 
-  -- this class defines some sets for you to
-  -- refer to when proving that it works:
+-- S: the set of "known primes", less than C
+def S [PrimeSieveState α] (x:α) : Set NPrime := { p | p.val < (C x).val }
 
-  -- S: the set of "known primes", less than C
-  S  (x:α) : Set NPrime := pltC (C x)
-  hS (x:α) : ∀ p ∈ S x, pltC (C x) p := (by sorry)
+-- R: the set of "remaining" numbers, coprime to all known primes
+def R [PrimeSieveState α] (x:α) : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ S x, ¬(p.val ∣ n) }
 
-  -- R is the remainding nats, coprime to all p∈S
-  R  (x:α) : Set Nat  := cpks (S x)
-  hR (x:α) : ∀ n ∈ R x, cpks (S x) n := (by sorry)
-
+structure PrimeSieveSpec {α : Type u} [PrimeSieveState α] where
   -- these are tne steps you need to prove:
   -- apostrophe indicates result of the 'next' operation
-  hCinR (x:α) : (C x).val ∈ R x             -- C is in R
+  hCinR (x:α) : (C x).val ∈ R x             -- C is in R (trivial but maybe useful?)
   hCinS (x:α) : (C x) ∈ S (next x)          -- C is in S'
   hRmin (x:α) : ∀ n ∈ (R x), n ≥ (C x).val  -- C is min of R
-  hSmax (x:α) : ∀ p ∈ (S x), p.val < (C x).val  -- C is max of S'
   hNewC (x:α) : (C $ next x).val > (C x).val -- C' > C
 
-open PrimeSieve
+section simple_gen
+
+  def prime_gt (c : Nat) (p : Nat) : Prop :=
+    Nat.Prime p ∧ c < p
+
+  instance : Decidable (prime_gt c p) := by
+    rw[prime_gt]; apply inferInstanceAs
+
+  theorem ex_prime_gt (c:Nat) : ∃ p, prime_gt c p := by
+    simp[prime_gt]
+    let d := c + 1 -- because the line below has ≤ and we need <
+    let ⟨p, hcp, hprime⟩ : ∃ (p : ℕ), d ≤ p ∧ Nat.Prime p :=
+      Nat.exists_infinite_primes d
+    use p; apply And.intro
+    · exact hprime
+    · linarith
+
+  -- Use Nat.find to get the smallest n that satisfies P
+  def next_prime (c:Nat) : Nat := Nat.find <| ex_prime_gt c
+
+  def PrimeGt (c:Nat): Type := { p : Nat // prime_gt c p }
+
+  -- !! seems like this would do the search twice?
+  def next_primegt (c: Nat) : PrimeGt c :=
+    ⟨Nat.find (ex_prime_gt c), Nat.find_spec (ex_prime_gt c)⟩
+
+  def nprime_gt (p:PrimeGt c): NPrime :=
+    ⟨p.val, (by
+      have : prime_gt c p.val := p.property
+      simp[prime_gt] at this
+      exact this.left)⟩
+
+  def next_nprime (c:Nat) : NPrime :=
+    nprime_gt (next_primegt c)
+
+  structure SimpleGen where
+    c : NPrime
+
+  instance : PrimeSieveState SimpleGen where
+    C x := x.c
+    init := ⟨2, Nat.prime_two⟩
+    next x := ⟨nprime_gt (next_primegt x.c.val)⟩
+
+end simple_gen
+
+
+------- ||| everything below here is probably junk ||| ------------
+
+
+/-
+
+open PrimeSieveSpec
 -- demonstrate that (hS, hR, hMin, hNew) are enough to prove
 -- that a sieve generates the next consecutive prime at each step
-theorem hs_suffice (α : Type u) [PrimeSieve α]
+theorem hs_suffice (α : Type u) [PrimeSieveState α] [PrimeSieveProSpecPrimeSieveSpec
   (x:α) (x':α) (hnx: x' = next x)
   : (C x').val > (C x).val  -- "we have a new, bigger prime"
   ∧ ¬∃ p:NPrime,   -- "and there is no prime between them"
@@ -84,12 +128,11 @@ theorem hs_suffice (α : Type u) [PrimeSieve α]
       have : (C x).val < p.val := sorry
       have : p.val < (C x').val := sorry
       sorry
+-/
 
 -- describe the set of naturals with no prime factors less than some c
 -- "remaining set"? "residual set?"
 def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
-
-#check Inf $ rs 2
 
 -- if c is a member of rs c, then c is prime
 lemma cprime (c : Nat) (h2: c≥2) (hcrc: c ∈ rs c ) : Nat.Prime c :=  by
