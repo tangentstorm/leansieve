@@ -21,8 +21,6 @@ def step (s0 : ASeqPrimeSieve) : ASeqPrimeSieve :=
   let np := (List.minimum? $ ss.map fun s => (let f1:=ap s 0; if f1 == 1 then ap s 1 else f1)).get! -- series with next prime
   { ps := ps, pr := pr, np := ⟨np,sorry⟩, ss := ss }
 
--- excetuion ------------------------------------------------
-
 def printStep (s : ASeqPrimeSieve) (n : Nat) : IO Unit := do
   IO.println s
   s.ss.forM fun s => do
