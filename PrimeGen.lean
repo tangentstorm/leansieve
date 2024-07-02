@@ -6,6 +6,14 @@ def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr
 instance : ToString NPrime where
   toString s := s!"{s.val}"
 
+-- these let us get rid of .val to unwrap in the definitions:
+instance : LT NPrime where  lt a b := a.val < b.val
+instance : LE NPrime where  le a b := a.val < b.val
+instance : Dvd NPrime where dvd a b := a.val ∣ b.val
+instance : Coe NPrime Nat where coe n := n.val
+-- interestingly, this seems to shadow normal Nat ∈ Set Nat operations.
+-- instance : Membership NPrime (Set Nat) where mem n s := n.val ∈ s
+
 lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
   (h2lc: 2 ≤ c)                              -- c is at least 2
   (hnpf: ∀ p < c, Nat.Prime p → ¬(p∣c))      -- c has no prime factors
@@ -26,9 +34,9 @@ lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
 -- naturals less than C
-def nltC (c:NPrime) (n:Nat) : Prop := n < c.val
+def nltC (c:NPrime) (n:Nat) : Prop := n < c
 -- primes less than C
-def pltC (c:NPrime) (p:NPrime) : Prop := p.val < c.val
+def pltC (c:NPrime) (p:NPrime) : Prop := p < c
 -- natural numbers coprime to some known primes:
 def cpks (ks:Set NPrime) (n:Nat) : Prop :=
   n ≥ 2  ∧ ∀ p ∈ ks, ¬(p.val ∣ n)
@@ -40,7 +48,7 @@ class PrimeSieveState (α : Type u) where
 open PrimeSieveState
 
 -- S: the set of "known primes", less than C
-def S [PrimeSieveState α] (x:α) : Set NPrime := { p | p.val < (C x).val }
+def S [PrimeSieveState α] (x:α) : Set NPrime := { p | p < (C x) }
 
 -- R: the set of "remaining" numbers, coprime to all known primes
 def R [PrimeSieveState α] (x:α) : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ S x, ¬(p.val ∣ n) }
@@ -50,8 +58,8 @@ structure PrimeSieveSpec {α : Type u} [PrimeSieveState α] where
   -- apostrophe indicates result of the 'next' operation
   hCinR (x:α) : (C x).val ∈ R x             -- C is in R (trivial but maybe useful?)
   hCinS (x:α) : (C x) ∈ S (next x)          -- C is in S'
-  hRmin (x:α) : ∀ n ∈ (R x), n ≥ (C x).val  -- C is min of R
-  hNewC (x:α) : (C $ next x).val > (C x).val -- C' > C
+  hRmin (x:α) : ∀ n ∈ (R x), n ≥ (C x)  -- C is min of R
+  hNewC (x:α) : (C $ next x) > (C x) -- C' > C
 
 section simple_gen
 
@@ -79,9 +87,9 @@ section simple_gen
   def next_primegt (c: Nat) : PrimeGt c :=
     ⟨Nat.find (ex_prime_gt c), Nat.find_spec (ex_prime_gt c)⟩
 
-  def nprime_gt (p:PrimeGt c): NPrime :=
-    ⟨p.val, (by
-      have : prime_gt c p.val := p.property
+  def nprime_gt (pg:PrimeGt c): NPrime :=
+    ⟨pg.val, (by
+      have : prime_gt c pg.val := pg.property
       simp[prime_gt] at this
       exact this.left)⟩
 
@@ -94,7 +102,7 @@ section simple_gen
   instance : PrimeSieveState SimpleGen where
     C x := x.c
     init := ⟨2, Nat.prime_two⟩
-    next x := ⟨nprime_gt (next_primegt x.c.val)⟩
+    next x := ⟨nprime_gt (next_primegt x.c)⟩
 
 end simple_gen
 
