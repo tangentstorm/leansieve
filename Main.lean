@@ -11,7 +11,10 @@ deriving Repr
 instance : ToString ASeqPrimeSieve where
   toString s := s!"ps: {s.ps}, pr: {s.pr}, np: {s.np}, ss: {s.ss}"
 
-def init : ASeqPrimeSieve := { ps := [], pr := 1, np := ⟨2,Nat.prime_two⟩, ss := [mk 2 1] }
+def init : ASeqPrimeSieve := {
+  ps := [], pr := 1,
+  np := ⟨2,Nat.prime_two⟩,
+  ss := [ASeq.mk 2 1]  }
 
 def step (s0 : ASeqPrimeSieve) : ASeqPrimeSieve :=
   let ps := s0.ps ++ [s0.np]

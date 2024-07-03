@@ -7,8 +7,8 @@ instance : ToString NPrime where
   toString s := s!"{s.val}"
 
 -- these let us get rid of .val to unwrap in the definitions:
-instance : LT NPrime where  lt a b := a.val < b.val
-instance : LE NPrime where  le a b := a.val < b.val
+instance : LT NPrime where lt a b := a.val < b.val
+instance : LE NPrime where le a b := a.val < b.val
 instance : Dvd NPrime where dvd a b := a.val ∣ b.val
 instance : Coe NPrime Nat where coe n := n.val
 -- interestingly, this seems to shadow normal Nat ∈ Set Nat operations.
@@ -51,7 +51,9 @@ open PrimeSieveState
 def S [PrimeSieveState α] (x:α) : Set NPrime := { p | p < (C x) }
 
 -- R: the set of "remaining" numbers, coprime to all known primes
+-- describe the set of naturals with no prime factors less than some c
 def R [PrimeSieveState α] (x:α) : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ S x, ¬(p.val ∣ n) }
+def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
 
 structure PrimeSieveSpec {α : Type u} [PrimeSieveState α] where
   -- these are tne steps you need to prove:
@@ -138,9 +140,6 @@ theorem hs_suffice (α : Type u) [PrimeSieveState α] [PrimeSieveProSpecPrimeSie
       sorry
 -/
 
--- describe the set of naturals with no prime factors less than some c
--- "remaining set"? "residual set?"
-def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
 
 -- if c is a member of rs c, then c is prime
 lemma cprime (c : Nat) (h2: c≥2) (hcrc: c ∈ rs c ) : Nat.Prime c :=  by
