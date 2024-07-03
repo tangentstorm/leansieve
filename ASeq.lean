@@ -12,13 +12,13 @@ instance : Ord ASeq where  -- !! TODO: use with List.mergeSort
     | ord => ord
 
 -- apply formula to n
-def ap (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
+def term (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
 
 -- apply one formula to another: r(n) := s(t(n))
 def compose (s : ASeq) (t : ASeq) : ASeq := .mk (s.k + s.d * t.k) (s.d * t.d)
 
 -- generate n terms of a sequence
-def terms (s : ASeq) (n : Nat) : List Nat := List.range n |>.map λ i =>ap s i
+def terms (s : ASeq) (n : Nat) : List Nat := List.range n |>.map λ i => term s i
 
 -- identity sequence
 def ids : ASeq := .mk 0 1
@@ -30,7 +30,7 @@ def odds : ASeq := .mk 1 2
 #eval terms odds 10  -- [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
 
 -- use sequence like a function
-instance : CoeFun ASeq fun _ => Nat → Nat := ⟨ap⟩
+instance : CoeFun ASeq fun _ => Nat → Nat := ⟨term⟩
 
 #eval evens 10  -- 20
 

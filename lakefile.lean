@@ -10,7 +10,8 @@ lean_lib Treesiv {
 }
 
 lean_lib ASeq { }
-lean_lib PrimeGen {}
+lean_lib Rake { }
+lean_lib PrimeGen { }
 
 --@[defaultTarget]
 --lean_exe treesiv {
