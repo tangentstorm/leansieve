@@ -1,5 +1,5 @@
 -- ASeq: Arithmetic Sequences
-import Mathlib.Tactic
+import Mathlib.Tactic.Linarith
 
 structure ASeq where  -- arithmetic sequence (k + dn)
   k : Nat  -- constant
@@ -51,7 +51,7 @@ instance : ToString ASeq where
     else s!"{s.k} + {s.d}n"
 
 -- limit results to those greater than or equal to n
-def gte (s : ASeq) (n : Nat) : ASeq :=
+def ASeq.gte (s : ASeq) (n : Nat) : ASeq :=
   if n ≤ s.k then s
   else if n ≤ s.d then .mk (s.k + s.d) s.d
   else
@@ -67,12 +67,15 @@ theorem self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
   have : r < d := Nat.mod_lt n hd
   linarith
 
-theorem gte_term (s : ASeq) (n : Nat) : s.d > 0 → n ≤ term (gte s n) 0 := by
+theorem gte_term (s : ASeq) (n : Nat) : s.d > 0 → n ≤ term (s.gte n) 0 := by
   intro hdz
-  simp[term,gte]
+  simp[term, ASeq.gte]
   if hsk : n ≤ s.k then simp [hsk]
   else if hsd : n ≤ s.d then simp [hsd, hsk]; linarith
   else
     simp[hsk,hsd]
     have hle: n ≤ s.d * (n/s.d + 1) := self_lt_mul_div_add n s.d hdz
     linarith
+
+#eval terms evens 10         -- [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+#eval terms (evens.gte 5) 10 -- [6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
