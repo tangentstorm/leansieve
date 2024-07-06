@@ -9,7 +9,7 @@ deriving Repr
 instance : Inhabited ASeq where
   default := .mk 0 1
 
-instance : Ord ASeq where  -- !! TODO: use with List.mergeSort
+instance : Ord ASeq where
   compare s1 s2 :=
     match compare s1.k s2.k with
     | .eq => compare s1.d s2.d

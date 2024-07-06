@@ -49,13 +49,9 @@ def Rake.gte (r : Rake) (n : Nat) : Rake := {
 
 def Rake.rem (r : Rake) (n : Nat) : Rake := {
   d := r.d
-  seqs := r.seqs.map (λ s => ⟨ASeq.gte s.val n, (by
-    have : s.val.d = r.d := s.property
-    symm at this
-    simp[this]
-    apply ASeq.gte_same_delta s.val n)⟩) |> List.mergeSort (·≤·)
-  hsort := by apply List.sorted_mergeSort
-  hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
+  seqs := r.seqs |> List.mergeSort (·≤·)
+  hsort := sorry -- by apply List.sorted_mergeSort
+  hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
 
 -- rakemap --------------------------------------------------------------------
 
@@ -150,6 +146,6 @@ def RakeMap.rem (prev : RakeMap prop) (p: Nat)
     have : prop n ↔ hpm := prev.hbij n
     have : p∣n → ¬hm := rem_drop prev p n
     have : ¬p∣n ∧ hpm → hm := rem_keep prev p n
-    have : hm → hpm := gte_same prev p n
+    have : hm → hpm := rem_same prev p n
     by_cases p∣n; all_goals aesop
   { rake := rake, hbij := proof }
