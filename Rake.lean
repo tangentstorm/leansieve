@@ -5,9 +5,7 @@
 -- subset of the natural numbers with a lower bound and
 -- the multiples certain numbers removed.
 import ASeq
-import MathLib.Data.Nat.Prime
 import MathLib.Data.List.Sort
-import Mathlib.Tactic.Ring
 
 def DSeq (d : Nat) := { s : ASeq // s.d = d }
 instance : Inhabited (DSeq d) := ⟨⟨ASeq.mk 0 d, rfl⟩⟩
