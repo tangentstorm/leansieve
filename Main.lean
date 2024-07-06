@@ -21,7 +21,7 @@ def step (s0 : ASeqPrimeSieve) : ASeqPrimeSieve :=
   let pr := s0.pr * s0.np.val
   let ss0 := (s0.ss.map fun s => partition s s0.np.val).join
   let ss := (ss0.filter fun s => s.k % s0.np.val != 0)  -- strip out multiples of np
-  let np := (List.minimum? $ ss.map fun s => (let f1:=ap s 0; if f1 == 1 then ap s 1 else f1)).get! -- series with next prime
+  let np := (List.minimum? $ ss.map fun s => (let f1:=s 0; if f1 == 1 then s 1 else f1)).get! -- series with next prime
   { ps := ps, pr := pr, np := ⟨np,sorry⟩, ss := ss }
 
 def printStep (s : ASeqPrimeSieve) (n : Nat) : IO Unit := do
