@@ -59,10 +59,40 @@ structure RakeMap (prop: Nat → Prop) where
   rake : Rake
   hbij : ∀ n, prop n ↔ ∃ m, rake.term m = n
 
--- proof that idr represents the identity function
+-- proof that idr.term provides a bijection from Nat → Nat
+-- (it happens to be an identity map, but this is not necessary for proofs)
 def idrm : RakeMap (λ _ => True) := {
   rake := idr,
   hbij := by intro n; simp[Rake.term, idr]; unfold dseq; unfold term; simp }
 
-def RakeMap.gte (self : RakeMap prop) (p: Nat) (hp: Nat.Prime p)
-  : (RakeMap (λ n => prop n ∧ ¬(p∣n))) := sorry
+section gte_lemmas
+
+  variable (rm: RakeMap prop) (p n: Nat)
+
+  lemma RakeMap.gte_drop -- gte drops terms < p
+    : n < p → ¬(∃m, (rm.rake.gte p).term m = n) := by
+    sorry
+
+  lemma RakeMap.gte_keep -- gte keeps terms ≥ p
+    : n≥p ∧ (∃pm, rm.rake.term pm = n) → (∃m, (rm.rake.gte p).term m = n) := by
+    sorry
+
+  lemma RakeMap.gte_same -- gte introduces no new terms
+    : (∃pm, (rm.rake.gte p).term pm = n) → (∃pm, rm.rake.term pm = n) := by
+    sorry
+
+end gte_lemmas
+
+def RakeMap.gte_prop (prev : RakeMap prop) (p: Nat)
+  : RakeMap (λ n => prop n ∧ n ≥ p) :=
+  let rake := prev.rake.gte p
+  let proof := by
+    intro n; symm
+    let hm : Prop := (∃m, rake.term m = n)
+    let hpm : Prop := (∃pm, prev.rake.term pm = n )
+    have : prop n ↔ hpm := prev.hbij n
+    have : n<p → ¬hm := gte_drop prev p n
+    have : n≥p ∧ hpm → hm := gte_keep prev p n
+    have : hm → hpm := gte_same prev p n
+    by_cases n<p; all_goals aesop
+  { rake := rake, hbij := proof }
