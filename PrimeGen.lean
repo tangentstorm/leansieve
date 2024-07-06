@@ -41,21 +41,21 @@ def pltC (c:NPrime) (p:NPrime) : Prop := p < c
 def cpks (ks:Set NPrime) (n:Nat) : Prop :=
   n ≥ 2  ∧ ∀ p ∈ ks, ¬(p.val ∣ n)
 
-class PrimeSieveState (α : Type u) where
+class PrimeGen (α : Type u) where
   C : α → NPrime
   init : α
   next : α → α
-open PrimeSieveState
+open PrimeGen
 
 -- S: the set of "known primes", less than C
-def S [PrimeSieveState α] (x:α) : Set NPrime := { p | p < (C x) }
+def S [PrimeGen α] (x:α) : Set NPrime := { p | p < (C x) }
 
 -- R: the set of "remaining" numbers, coprime to all known primes
 -- describe the set of naturals with no prime factors less than some c
-def R [PrimeSieveState α] (x:α) : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ S x, ¬(p.val ∣ n) }
+def R [PrimeGen α] (x:α) : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ S x, ¬(p.val ∣ n) }
 def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
 
-structure PrimeSieveSpec {α : Type u} [PrimeSieveState α] where
+structure PrimeSieveSpec {α : Type u} [PrimeGen α] where
   -- these are tne steps you need to prove:
   -- apostrophe indicates result of the 'next' operation
   hCinR (x:α) : (C x).val ∈ R x             -- C is in R (trivial but maybe useful?)
@@ -101,7 +101,7 @@ section simple_gen
   structure SimpleGen where
     c : NPrime
 
-  instance : PrimeSieveState SimpleGen where
+  instance : PrimeGen SimpleGen where
     C x := x.c
     init := ⟨2, Nat.prime_two⟩
     next x := ⟨nprime_gt (next_primegt x.c)⟩
@@ -117,7 +117,7 @@ end simple_gen
 open PrimeSieveSpec
 -- demonstrate that (hS, hR, hMin, hNew) are enough to prove
 -- that a sieve generates the next consecutive prime at each step
-theorem hs_suffice (α : Type u) [PrimeSieveState α] [PrimeSieveProSpecPrimeSieveSpec
+theorem hs_suffice (α : Type u) [PrimeGen α] [PrimeSieveProSpecPrimeSieveSpec
   (x:α) (x':α) (hnx: x' = next x)
   : (C x').val > (C x).val  -- "we have a new, bigger prime"
   ∧ ¬∃ p:NPrime,   -- "and there is no prime between them"
