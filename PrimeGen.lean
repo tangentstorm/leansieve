@@ -19,6 +19,9 @@ class PrimeGen (α : Type u) where
   init : α
   next : α → α
 
+open PrimeGen
+def C' {α : Type u} [PrimeGen α] (x: α) : NPrime := C <| next x
+
 section simple_gen
 
   def prime_gt (c : Nat) (p : Nat) : Prop :=

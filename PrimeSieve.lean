@@ -1,5 +1,7 @@
 import PrimeGen
+open PrimeGen
 
+set_option autoImplicit false
 
 lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
   (h2lc: 2 ≤ c)                              -- c is at least 2
@@ -25,70 +27,68 @@ lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
 def nltC (c:NPrime) (n:Nat) : Prop := n < c
 -- primes less than C
 def pltC (c:NPrime) (p:NPrime) : Prop := p < c
--- natural numbers coprime to some known primes:
-def cpks (ks:Set NPrime) (n:Nat) : Prop :=
-  n ≥ 2  ∧ ∀ p ∈ ks, ¬(p.val ∣ n)
 
+section prime_sieve
+  variable {α : Type} [PrimeGen α]  (x: α)
 
--- S: the set of "known primes", less than C
-def S [PrimeGen α] (x:α) : Set NPrime := { p | p < (C x) }
+  -- S: the set of "known primes", less than C
+  def S : Set NPrime := { p | p < (C x) }
 
--- R: the set of "remaining" numbers, coprime to all known primes
--- describe the set of naturals with no prime factors less than some c
-def R [PrimeGen α] (x:α) : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ S x, ¬(p.val ∣ n) }
-def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
+  -- R: the set of "remaining" numbers, coprime to all known primes
+  -- describe the set of naturals with no prime factors less than some c
+  def R : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ (S x), ¬(p.val ∣ n) }
 
-structure PrimeSieveSpec {α : Type u} [PrimeGen α] where
-  -- these are tne steps you need to prove:
-  -- apostrophe indicates result of the 'next' operation
-  hCinR (x:α) : (C x).val ∈ R x             -- C is in R (trivial but maybe useful?)
-  hCinS (x:α) : (C x) ∈ S (next x)          -- C is in S'
-  hRmin (x:α) : ∀ n ∈ (R x), n ≥ (C x)  -- C is min of R
-  hNewC (x:α) : (C $ next x) > (C x) -- C' > C
-
+  def S' : Set NPrime := S <| next x
+  def R' : Set Nat := R <| next x
+end prime_sieve
 
 /--
 A PrimeSieve is a PrimeGen that uses a sieve to generate primes.
-In practice this means that it somehow models the set of natural
-numbers greater than 1 that are coprime to a list of primes, and
-then repeatedly:
+In practice, this means that it somehow models the set of natural
+numbers greater than 1 that are coprime to a list of known primes,
+and then repeatedly:
   - obtains the minimum of this set as the next prime
   - eliminates multiples of the new prime. -/
-class PrimeSieve {α : Type} [PrimeGen α] where
-  todo : sorry
+class PrimeSieve (α : Type) [PrimeGen α] : Prop where
+  -- these are tne steps you need to prove:
+  -- apostrophe indicates result of the 'next' operation
+  -- hCinR  (x:α) : (C x).val ∈ R x             -- C is in R (trivial but maybe useful?)
+  hCinS  (x:α) : C x ∈ S' x          -- C is in S'
+  hRmin  (x:α) : ∀n ∈ R x, C x ≤ n   -- C is min of R
+  hNewC  (x:α) : C x < C' x          -- C < C'
 
 
-
-------- ||| everything below here is probably junk ||| ------------
-
-
-/-
-
-open PrimeSieveSpec
 -- demonstrate that (hS, hR, hMin, hNew) are enough to prove
 -- that a sieve generates the next consecutive prime at each step
-theorem hs_suffice (α : Type u) [PrimeGen α] [PrimeSieveProSpecPrimeSieveSpec
-  (x:α) (x':α) (hnx: x' = next x)
-  : (C x').val > (C x).val  -- "we have a new, bigger prime"
-  ∧ ¬∃ p:NPrime,   -- "and there is no prime between them"
-    ((C x).val<p.val ∧ p.val<(C x').val)
-  := by
+-- "we have a new, bigger prime, and there is no prime between them"
+theorem hs_suffice (α : Type) [PrimeGen α] [PrimeSieve α] (x:α)
+  :  (C' x > C x)  ∧ (¬∃ p:NPrime, C x < p ∧  p < C' x) := by
     apply And.intro
-    case left => -- "new bigger prime" is class invariant
-      rw[hnx]; apply hNewC
+    case left => exact PrimeSieve.hNewC x
     case right =>
-      by_contra ex_p; let ⟨p, hp⟩ := ex_p -- assume p exists.
-      have : cpks (S x') (C x').val := hR x' (C x').val $ hCinR x'
-      simp[cpks] at this
-      have ⟨hc'g2, hc'coprime⟩ := this
-      -- if there's a prime between C and C', then
-      -- C'
-      have h: (C $ next x).val > (C x).val := hNewC x
-      rw[←hnx] at h
-      have : (C x).val < p.val := sorry
-      have : p.val < (C x').val := sorry
+      -- if hRmin is true, this cannot happen, so show a contradiction
+      by_contra hexp; let ⟨p, hp⟩ := hexp -- assume prime p between C and C'
+      have hRmin: ∀n ∈ R x, C x ≤ n := PrimeSieve.hRmin x
       sorry
--/
+    --   -- natural numbers coprime to some known primes:
+    --   def cpks (ks:Set NPrime) (n:Nat) : Prop :=
+    --     n ≥ 2  ∧ ∀ p ∈ ks, ¬(p.val ∣ n)
+
+    --   have : cpks (S' x) (C' x) := by aesop
+    --   simp[cpks] at this
+    --   have ⟨hc'g2, hc'coprime⟩ := this
+    --   -- if there's a prime between C and C', then
+    --   -- C'
+    --   have h: (C $ next x).val > (C x).val := hNewC x
+    --   rw[←hnx] at h
+    --   have : (C x).val < p.val := sorry
+    --   have : p.val < (C x').val := sorry
+    --   sorry
+
+--- probably don't need this stuff ------------------------------------------------
+
+-- another way to formulate R, without reference to a PrimeGen
+def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
 
 
 -- if c is a member of rs c, then c is prime
