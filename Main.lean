@@ -16,13 +16,15 @@ def init : ASeqPrimeSieve := {
   np := ⟨2,Nat.prime_two⟩,
   ss := [ASeq.mk 2 1]  }
 
-def step (s0 : ASeqPrimeSieve) : ASeqPrimeSieve :=
+def step (s0 : ASeqPrimeSieve) : Option ASeqPrimeSieve :=
   let ps := s0.ps ++ [s0.np]
   let pr := s0.pr * s0.np.val
   let ss0 := (s0.ss.map fun s => partition s s0.np.val).join
   let ss := (ss0.filter fun s => s.k % s0.np.val != 0)  -- strip out multiples of np
-  let np := (List.minimum? $ ss.map fun s => (let f1:=s 0; if f1 == 1 then s 1 else f1)).get! -- series with next prime
-  { ps := ps, pr := pr, np := ⟨np,sorry⟩, ss := ss }
+  let np := (List.minimum? $ ss.map fun s => s 0).get! -- series with next prime
+  if runtime_check : Nat.Prime np then
+    some { ps := ps, pr := pr, np := ⟨np, runtime_check⟩, ss := ss }
+  else panic! "not prime"
 
 def printStep (s : ASeqPrimeSieve) (n : Nat) : IO Unit := do
   IO.println s
@@ -36,8 +38,11 @@ def main : IO Unit := do
   let n := 10
   printStep sv n
   for _ in [0:5] do
-    sv := step sv
-    IO.println "----------------"
-    printStep sv n
+    match (step sv) with
+    | some s =>
+        sv := s
+        IO.println "----------------"
+        printStep sv n
+    | none => panic! "no more primes"
 
 #eval main
