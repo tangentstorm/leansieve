@@ -2,13 +2,10 @@
 import Mathlib.Data.Nat.Prime
 import Mathlib.Tactic.Linarith.Frontend
 
-def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr
-instance : ToString NPrime where
-  toString s := s!"{s.val}"
+def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr, Ord, LT, LE
 
--- these let us get rid of .val to unwrap in the definitions:
-instance : LT NPrime where lt a b := a.val < b.val
-instance : LE NPrime where le a b := a.val < b.val
+@[simp] theorem NPrime.eq_iff (a b : NPrime) : a = b ↔ a.val = b.val := Subtype.ext_iff
+instance : ToString NPrime where toString s := s!"{s.val}"
 instance : Dvd NPrime where dvd a b := a.val ∣ b.val
 instance : Coe NPrime Nat where coe n := n.val
 -- interestingly, this seems to shadow normal Nat ∈ Set Nat operations.

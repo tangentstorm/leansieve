@@ -23,11 +23,6 @@ lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
 
--- naturals less than C
-def nltC (c:NPrime) (n:Nat) : Prop := n < c
--- primes less than C
-def pltC (c:NPrime) (p:NPrime) : Prop := p < c
-
 section prime_sieve
   variable {α : Type} [PrimeGen α]  (x: α)
 
@@ -50,13 +45,9 @@ and then repeatedly:
   - obtains the minimum of this set as the next prime
   - eliminates multiples of the new prime. -/
 class PrimeSieve (α : Type) [PrimeGen α] : Prop where
-  -- these are tne steps you need to prove:
-  -- apostrophe indicates result of the 'next' operation
-  -- hCinR  (x:α) : (C x).val ∈ R x             -- C is in R (trivial but maybe useful?)
-  hCinS  (x:α) : C x ∈ S' x          -- C is in S'
-  hRmin  (x:α) : ∀n ∈ R x, C x ≤ n   -- C is min of R
-  hNewC  (x:α) : C x < C' x          -- C < C'
-
+  hRmin  (x:α) : ∀n ∈ R x, C x ≤ n    -- C is min of R
+  hCmax  (x:α) : ∀ p ∈ S' x, C x ≥ p  -- C is the max of S'
+  hNewC  (x:α) : C x < C' x           -- C < C'
 
 -- demonstrate that (hS, hR, hMin, hNew) are enough to prove
 -- that a sieve generates the next consecutive prime at each step
@@ -64,43 +55,69 @@ class PrimeSieve (α : Type) [PrimeGen α] : Prop where
 theorem hs_suffice (α : Type) [PrimeGen α] [PrimeSieve α] (x:α)
   :  (C' x > C x)  ∧ (¬∃ p:NPrime, C x < p ∧  p < C' x) := by
     apply And.intro
+    -- the left side is proven for us by the implementor of the sieve:
     case left => exact PrimeSieve.hNewC x
-    case right =>
-      -- if hRmin is true, this cannot happen, so show a contradiction
-      by_contra hexp; let ⟨p, hp⟩ := hexp -- assume prime p between C and C'
-      have hRmin: ∀n ∈ R x, C x ≤ n := PrimeSieve.hRmin x
-      sorry
-    --   -- natural numbers coprime to some known primes:
-    --   def cpks (ks:Set NPrime) (n:Nat) : Prop :=
-    --     n ≥ 2  ∧ ∀ p ∈ ks, ¬(p.val ∣ n)
 
-    --   have : cpks (S' x) (C' x) := by aesop
-    --   simp[cpks] at this
-    --   have ⟨hc'g2, hc'coprime⟩ := this
-    --   -- if there's a prime between C and C', then
-    --   -- C'
-    --   have h: (C $ next x).val > (C x).val := hNewC x
-    --   rw[←hnx] at h
-    --   have : (C x).val < p.val := sorry
-    --   have : p.val < (C x').val := sorry
-    --   sorry
+    -- for the right side, we must show that no prime q can exist between C and C'
+    case right : (¬∃ p:NPrime, C x < p ∧  p < C' x) := by
+      intro ⟨q, ⟨hCltQ, hQltC'⟩⟩ -- `intro q` on a ¬∃ goal requires we find a contradiction.
 
---- probably don't need this stuff ------------------------------------------------
+      -- hRmin tells us that that C' is the min of the set R'.
+      have hR'min: ∀n ∈ R' x, C' x ≤ n := PrimeSieve.hRmin <| next x
 
--- another way to formulate R, without reference to a PrimeGen
+      -- demonstrating Q ∈ R' would show the contradiction since Q < C' and C' is min of R
+      suffices hQinR': q.val ∈ R' x from by
+        apply hR'min at hQinR'; simp_all
+        -- the contradiction is between hqltC':(q < C'x) and hQinR':(C'x ≤ q)
+        -- Lean can't see this for the actual definition, so give it some help:
+        have {α : Type} {q :Nat} {x :α} {C':α→Nat} (lt: q< C' x) (hge: C' x ≤ q) : False := by omega
+        exact this hQltC' hQinR'
+
+      -- so now we just show hQinR'. q∈R' means q≥2 ∧ (¬∃p∈ S x, p∣q)
+      -- both of these facts follow immediately from the fact that q is prime,
+      -- provided we can *also* show that q itself is not an element of s.
+
+      -- (we'll need these two facts to prove both sides of goal).
+      have hqP: Nat.Prime q.val := by unfold NPrime at q; aesop
+      have hqgt2: q.val ≥ 2 := by simp[Nat.prime_def_lt] at hqP; omega
+      unfold R'; constructor
+      -- part 1. q ∈ R' → q ≥ 2.
+      case left := hqgt2
+      -- part 2. q ∈ R' → ¬∃ p ∈ S', p∣q
+      case right: ∀ p ∈ (S' x), ¬(p.val ∣ q.val) := by
+        intro p hp hpq -- assume p exists and p|q. show a contradiction.
+        -- since that p|q and both are prime, it follows that p=q.
+        have hpP: Nat.Prime p.val := by unfold NPrime at p; aesop
+        have : p = q := by
+          have : p.val ≠ 1 := Ne.symm <| Nat.ne_of_lt <| Nat.Prime.one_lt hpP
+          have : p.val ∣ q.val ↔ p.val = q.val := by exact Nat.prime_dvd_prime_iff_eq hpP hqP
+          symm at this; aesop
+        -- this means q∈S'
+        have : q ∈ (S' x) := by aesop
+        -- so by hCmax, C x > q
+        have hCgeQ: C x ≥ q := by
+          apply PrimeSieve.hCmax at this
+          exact this
+        -- and now the same helper we used before, but in the other direction:
+        have {α : Type} {q :Nat} {x :α} {C':α→Nat} (lt: q< C' x) (hge: C' x ≤ q) : False := by omega
+        exact this hCltQ hCgeQ
+
+
+--- !! with the above formulation, we still have to prove that C is prime.
+-- the code below would let us define C:Nat instead, and derive the fact
+-- that C is prime automatically.
+
+-- Here we reformulate R x without reference to (x : PrimeGen α)
+-- And instead just use some natural number c.
 def rs (c : Nat) : Set Nat := { n : Nat | c ≤ n ∧ ∀ p < c, Nat.Prime p → ¬(p∣n) }
 
-
--- if c is a member of rs c, then c is prime
+-- if `c` is a member of `rs c`, then c is prime
+-- (not *everything* in `rs c` is prime, and `c` itself might not be in `rs c`)
 lemma cprime (c : Nat) (h2: c≥2) (hcrc: c ∈ rs c ) : Nat.Prime c :=  by
   have hh : ∀ p < c, Nat.Prime p → ¬(p∣c) := by
     simp[rs] at hcrc
     exact hcrc
   exact no_prime_factors_im_no_factors h2 hh
-
--- open Classical
--- noncomputable def least (S : Set Nat) (hex: ∃ n, n ∈ S) : Nat :=
---   Nat.find hex
 
 def least_in (nats : List Nat) (h : nats ≠ []) : Nat :=
   nats.foldr Nat.min (List.head nats h)
