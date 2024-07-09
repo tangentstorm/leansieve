@@ -6,6 +6,13 @@ structure ASeq where  -- arithmetic sequence (k + dn)
   d : Nat  -- delta (step size)
 deriving Repr
 
+def ASeq.le (a b: ASeq) := if a.d = b.d then a.k≤b.k else a.d<b.d
+instance : LE ASeq where le := ASeq.le
+instance : IsTotal ASeq (·≤·) := by
+  apply IsTotal.mk; intro a b;
+  dsimp[LE.le]; dsimp[ASeq.le]
+  split_ifs; all_goals omega
+
 instance : Inhabited ASeq where
   default := .mk 0 1
 
@@ -58,7 +65,7 @@ def ASeq.gte (s : ASeq) (n : Nat) : ASeq :=
     let t := n / s.d
     ASeq.mk (s.k + s.d * (t + 1)) s.d
 
-theorem self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
+lemma self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
   set r := n % d with hr
   set q := n / d with hq
   simp[← hq]
