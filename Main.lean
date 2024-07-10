@@ -1,48 +1,56 @@
 import ASeq
 import PrimeGen
+import MathLib.Data.List.Sort
 
 structure ASeqPrimeSieve where
-  ps : List NPrime      -- all primes we've used so far
-  pr : Nat              -- current primorial (product of ps)
-  np : NPrime           -- next prime
+  d : Nat               -- d : delta for all sequences. a primorial
+  c : NPrime            -- the current prime
   ss : List ASeq        -- list of sequences
+  ps : List NPrime      -- all primes we've used so far
 deriving Repr
 
 instance : ToString ASeqPrimeSieve where
-  toString s := s!"ps: {s.ps}, pr: {s.pr}, np: {s.np}, ss: {s.ss}"
+  toString s :=
+    let K := s.ss.map (λseq => seq.k)             -- const terms of all the sequences
+    let h := s.c.val ^ 2                          -- the "horizon" (all K below this are prime)
+    let q := K.filter (λk => k<h)                 -- the "queue" of identified unreported primes
+    let x := K.filter (λk => k≥h) |> List.length  -- number K not in Q
+    let r := s.ss.length                          -- total number of sequences
+    s!"d:{s.d} c:{s.c} h:{h} |q|:{q.length} |x|:{x} |ss|:{r}"--"\nq:{q}\nps:{s.ps}"
 
 def init : ASeqPrimeSieve := {
-  ps := [], pr := 1,
-  np := ⟨2,Nat.prime_two⟩,
+  ps := [], d := 1,
+  c := ⟨2,Nat.prime_two⟩,
   ss := [ASeq.mk 2 1]  }
 
 def step (s0 : ASeqPrimeSieve) : Option ASeqPrimeSieve :=
-  let ps := s0.ps ++ [s0.np]
-  let pr := s0.pr * s0.np.val
-  let ss0 := (s0.ss.map fun s => partition s s0.np.val).join
-  let ss := (ss0.filter fun s => s.k % s0.np.val != 0)  -- strip out multiples of np
-  let np := (List.minimum? $ ss.map fun s => s 0).get! -- series with next prime
-  if runtime_check : Nat.Prime np then
-    some { ps := ps, pr := pr, np := ⟨np, runtime_check⟩, ss := ss }
+  let ps := s0.ps ++ [s0.c]
+  let d := s0.d * s0.c.val
+  let ss0 := (s0.ss.map fun s => partition s s0.c).join
+  let ss := (ss0.filter fun s => s.k % s0.c.val != 0)  -- strip out multiples of np
+  let c := (List.minimum? $ ss.map fun s => s 0).get!  -- series with next prime
+  if runtime_check : Nat.Prime c then
+    some { ps := ps, d := d, c := ⟨c, runtime_check⟩, ss := ss }
   else panic! "not prime"
 
-def printStep (s : ASeqPrimeSieve) (n : Nat) : IO Unit := do
+def printStep (s : ASeqPrimeSieve) (nterms : Nat) : IO Unit := do
+  IO.println "-------------------------"
   IO.println s
   s.ss.forM fun s => do
     let width := 15
     let formula := (String.pushn (toString s) ' ' width).take width
-    IO.println s!"{formula}: {(terms s n)}"
+    IO.println s!"{formula}: {(terms s nterms)}"
 
-def main : IO Unit := do
+def iters (n:Nat) : IO Unit := do
   let mut sv := init
-  let n := 10
-  printStep sv n
-  for _ in [0:5] do
+  printStep sv 5
+  for _ in [0:n] do
     match (step sv) with
-    | some s =>
-        sv := s
-        IO.println "----------------"
-        printStep sv n
-    | none => panic! "no more primes"
+    | some siv =>
+        sv := siv
+        printStep siv n
+    | none => panic! "ran out of primes!?!"
 
-#eval main
+#eval iters 5
+
+def main : IO Unit := do iters 10
