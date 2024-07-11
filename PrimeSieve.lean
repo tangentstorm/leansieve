@@ -73,7 +73,8 @@ theorem no_skipped_prime (α : Type) [PrimeGen α] [PrimeSieve α] (g:α)
       have {α:Type} {q:Nat} {g:α} {G:α→Nat} (_:q<G g) (_:G g≤q) : False := by omega
       exact this hCltQ hCgeQ
 
-lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
+
+lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
   (h2lc: 2 ≤ c)                              -- c is at least 2
   (hnpf: ∀ p < c, Nat.Prime p → ¬(p∣c))      -- c has no prime factors
   : Nat.Prime c := by
@@ -91,6 +92,7 @@ lemma no_prime_factors_im_no_factors {c:ℕ} -- c is a candidate prime
         exact hnpf p this hpp
       contradiction
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
+
 
 lemma c_prime (α: Type) [PrimeGen α] [PrimeSieve α] (g:α)
   : Nat.Prime (C g) := by
@@ -117,12 +119,11 @@ lemma c_prime (α: Type) [PrimeGen α] [PrimeSieve α] (g:α)
     exact no_prime_factors_im_no_factors h2c hfac
 
 
--- demonstrate that (hS, hR, hMin, hNew) are enough to prove
--- that a sieve generates the next consecutive prime at each step
--- "we have a new, bigger prime, and there is no prime between them"
+-- demonstrate that a sieve generates the next consecutive prime at each step.
+-- "we have a new, bigger prime, and there is no prime between them".
 theorem hs_suffice (α : Type) [PrimeGen α] [PrimeSieve α] (g:α)
-  :  (C g > P g) ∧ (¬∃ q:NPrime, P g < q ∧  q < C g) ∧ (Nat.Prime <| C g):= by
+  :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q:NPrime, P g < q ∧  q < C g) := by
     split_ands
+    · exact c_prime α g
     . exact PrimeSieve.hCgtP g
     · exact no_skipped_prime α g
-    · exact c_prime α g
