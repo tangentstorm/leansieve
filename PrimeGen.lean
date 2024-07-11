@@ -11,21 +11,18 @@ instance : Coe NPrime Nat where coe n := n.val
 -- interestingly, this seems to shadow normal Nat ∈ Set Nat operations.
 -- instance : Membership NPrime (Set Nat) where mem n s := n.val ∈ s
 
-class PrimeGen (α : Type u) where
-  C : α → NPrime
+class PrimeGen (α : Type) where
+  P : α → NPrime
   init : α
   next : α → α
-
 open PrimeGen
-def C' {α : Type u} [PrimeGen α] (x: α) : NPrime := C <| next x
+
+def P' {α : Type} [PrimeGen α] (g: α) : NPrime := P <| next g
 
 section simple_gen
 
-  def prime_gt (c : Nat) (p : Nat) : Prop :=
-    Nat.Prime p ∧ c < p
-
-  instance : Decidable (prime_gt c p) := by
-    rw[prime_gt]; apply inferInstanceAs
+  def prime_gt (c:Nat) (p: Nat) : Prop := Nat.Prime p ∧ c < p
+  instance : Decidable (prime_gt c p) := by rw[prime_gt]; apply inferInstanceAs
 
   theorem ex_prime_gt (c:Nat) : ∃ p, prime_gt c p := by
     simp[prime_gt]
@@ -58,9 +55,9 @@ section simple_gen
   deriving Repr
 
   instance : PrimeGen SimpleGen where
-    C x := x.c
+    P g := g.c
     init := ⟨⟨2, Nat.prime_two⟩⟩
-    next x := ⟨next_nprime x.c⟩
+    next g := ⟨next_nprime g.c⟩
   open PrimeGen
 
 end simple_gen
@@ -71,11 +68,11 @@ def fpow (f : α → α) (n:Nat) (x₀ : α) : List α :=
   let rec aux (n:Nat) (x:α) (acc:List α) :=
     if n = 0 then x::acc
     else aux (n-1) (f x) (x::acc)
-  aux n x₀ []
+  aux n x₀ [] |>.reverse
 
 #eval fpow (λn => n+1) 10 0
 
 def primes (α : Type) [pg: PrimeGen α] (n : Nat) : List NPrime :=
-  fpow (fun g => pg.next g) n pg.init |>.map fun x => pg.C x
+  fpow (fun g => pg.next g) n pg.init |>.map fun g => pg.P g
 
 #eval primes SimpleGen 10
