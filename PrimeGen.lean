@@ -8,22 +8,23 @@ def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr, Ord, LT, LE
 instance : ToString NPrime where toString s := s!"{s.val}"
 instance : Dvd NPrime where dvd a b := a.val ∣ b.val
 instance : Coe NPrime Nat where coe n := n.val
--- interestingly, this seems to shadow normal Nat ∈ Set Nat operations.
+-- interestingly, the following seems to shadow normal Nat ∈ Set Nat operations.
 -- instance : Membership NPrime (Set Nat) where mem n s := n.val ∈ s
 
 class PrimeGen (α : Type) where
   P : α → NPrime
   init : α
   next : α → α
+  hP' (g:α) : (¬∃ q:NPrime, P g < q ∧  q < P (next g))
+
 open PrimeGen
 
-def P' {α : Type} [PrimeGen α] (g: α) : NPrime := P <| next g
+def P' {α : Type} [PrimeGen α] (g: α) : NPrime := P (next g)
 
 section simple_gen
 
-  def prime_gt (c:Nat) (p: Nat) : Prop := Nat.Prime p ∧ c < p
+  abbrev prime_gt n p := Nat.Prime p ∧ n < p
   instance : Decidable (prime_gt c p) := by rw[prime_gt]; apply inferInstanceAs
-
   theorem ex_prime_gt (c:Nat) : ∃ p, prime_gt c p := by
     simp[prime_gt]
     let d := c + 1 -- because the line below has ≤ and we need <
@@ -33,31 +34,42 @@ section simple_gen
     · exact hprime
     · linarith
 
-  -- Use Nat.find to get the smallest n that satisfies P
-  def next_prime (c:Nat) : Nat := Nat.find <| ex_prime_gt c
+  structure MinPrimeGt (n:Nat) where
+    p : Nat
+    hp : Nat.Prime p
+    hpgt : prime_gt n p
+    hmin : ∀q:Nat, q < p → (¬ prime_gt n q)
+    hmin' : ∀q:Nat, prime_gt n q → p ≤ q
 
-  def PrimeGt (c:Nat): Type := { p : Nat // prime_gt c p }
-
-  def next_primegt (c: Nat) : PrimeGt c :=
-    ⟨Nat.find (ex_prime_gt c), Nat.find_spec (ex_prime_gt c)⟩
-
-  def nprime_gt (pg:PrimeGt c): NPrime :=
-    ⟨pg.val, (by
-      have : prime_gt c pg.val := pg.property
-      simp[prime_gt] at this
-      exact this.left)⟩
-
-  def next_nprime (c:Nat) : NPrime :=
-    nprime_gt (next_primegt c)
+  def min_prime_gt (n: Nat) : MinPrimeGt n :=
+    let e := ex_prime_gt n
+    { p:=Nat.find e,
+      hp:=by have h:= Nat.find_spec e; simp[h],
+      hpgt:=Nat.find_spec e,
+      hmin:= by exact fun {q} a => Nat.find_min e a,
+      hmin':=by exact fun q a => Nat.find_min' e a}
 
   structure SimpleGen where
-    c : NPrime
-  deriving Repr
+    p : NPrime
+    c : MinPrimeGt p.val
+
+  def SimpleGen.next (g:SimpleGen) : SimpleGen :=
+    { p:=⟨g.c.p, g.c.hp⟩, c:=min_prime_gt g.c.p }
 
   instance : PrimeGen SimpleGen where
-    P g := g.c
-    init := ⟨⟨2, Nat.prime_two⟩⟩
-    next g := ⟨next_nprime g.c⟩
+    P g := g.p
+    init := {p := ⟨2, Nat.prime_two⟩, c := min_prime_gt 2 }
+    next := .next
+    hP' g := by  -- goal: no prime q between g.p and (g.next.p = g.c.p)
+      -- why? that would imply prime_gt (g.p) q, but hmin contradicts this
+      unfold SimpleGen.next; simp; intro q qgtp; by_contra hq
+      have h0 := g.c.hmin; simp at h0
+      apply h0 at hq
+      have := hq q.prop
+      have : ¬q.val>g.p.val := by exact Nat.not_lt.mpr this
+      have : ¬g.p < q := by aesop
+      contradiction
+
   open PrimeGen
 
 end simple_gen
