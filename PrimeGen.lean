@@ -16,7 +16,6 @@ class PrimeGen (α : Type) where
   init : α
   next : α → α
   hP' (g:α) : (¬∃ q:NPrime, P g < q ∧  q < P (next g))
-
 open PrimeGen
 
 def P' {α : Type} [PrimeGen α] (g: α) : NPrime := P (next g)
@@ -65,8 +64,7 @@ section simple_gen
       unfold SimpleGen.next; simp; intro q qgtp; by_contra hq
       have h0 := g.c.hmin; simp at h0
       apply h0 at hq
-      have := hq q.prop
-      have : ¬q.val>g.p.val := by exact Nat.not_lt.mpr this
+      have : ¬q.val>g.p.val := by exact Nat.not_lt.mpr (hq q.prop)
       have : ¬g.p < q := by aesop
       contradiction
 
