@@ -18,8 +18,6 @@ class PrimeGen (α : Type) where
   hP' (g:α) : (¬∃ q:NPrime, P g < q ∧  q < P (next g))
 open PrimeGen
 
-def P' {α : Type} [PrimeGen α] (g: α) : NPrime := P (next g)
-
 section simple_gen
 
   abbrev prime_gt n p := Nat.Prime p ∧ n < p

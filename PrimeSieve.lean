@@ -1,10 +1,16 @@
 import PrimeGen
-open PrimeGen
 
 set_option autoImplicit false
 
+class SieveState (α : Type) where
+  P     (s:α) : NPrime
+  C     (s:α) : Nat
+  next  (s:α) (hC: Nat.Prime (C s)) : α
+  hNext (s:α) (hC: Nat.Prime (C s)) : (P (next s hC) = C s)
+open SieveState
+
 section prime_sieve
-  variable {α : Type} [PrimeGen α]  (x: α)
+  variable {α : Type} [SieveState α]  (x: α)
   -- S: the set of "known primes", ≤ P
   def S : Set NPrime := { p | p ≤ (P x) }
   -- R: the set of "remaining" numbers, coprime to all known primes
@@ -13,24 +19,21 @@ section prime_sieve
 end prime_sieve
 
 /--
-A PrimeSieve is a PrimeGen that uses a sieve to generate primes.
+A PrimeSieve is a PrimeGen that uses a SieveState to generate primes.
 In practice, this means that it somehow models the set of natural
 numbers greater than 1 that are coprime to a list of known primes,
 and then repeatedly:
   - obtains the minimum of this set as the next prime
   - eliminates multiples of the new prime. -/
-class PrimeSieve (α : Type) [PrimeGen α] where
-  -- P (g:α) : NPrime
-  C (g:α) : Nat -- the "current" or "candidate" prime
-  hSmax  (g:α) : ∀ p ∈ S g, P g ≥ p   -- P is the max of S
+class PrimeSieve (α : Type) [SieveState α] where
+  --hSmax  (g:α) : ∀ p ∈ S g, P g ≥ p   -- P is the max of S
   hCinR  (g:α) : C g ∈ R g            -- C is an element of R
   hRmin  (g:α) : ∀ n ∈ R g, C g ≤ n   -- C is min of R
   hCgtP  (g:α) : C g > P g            -- C > P
-  hP'C   (g:α) : P' g = C g           -- P' = C
 open PrimeSieve
 
 
-theorem no_skipped_prime (α : Type) [PrimeGen α] [PrimeSieve α] (g:α)
+theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
   : ¬ ∃ q:NPrime, P g < q ∧ q < C g := by
     intro ⟨q, ⟨hCltQ, hQltG⟩⟩ -- `intro q` on a ¬∃ goal requires we find a contradiction.
     -- hRmin tells us that that C is the min of the set R.
@@ -63,12 +66,9 @@ theorem no_skipped_prime (α : Type) [PrimeGen α] [PrimeSieve α] (g:α)
         have : p.val ≠ 1 := Ne.symm <| Nat.ne_of_lt <| Nat.Prime.one_lt hpP
         have : p.val ∣ q.val ↔ p.val = q.val := by exact Nat.prime_dvd_prime_iff_eq hpP hqP
         symm at this; aesop
-      -- this means q∈S
+      -- q∈S and S is defined as primes ≤ P g
       have : q ∈ (S g) := by aesop
-      -- so by hGmax, P g > q
-      have hCgeQ: P g ≥ q := by
-        apply PrimeSieve.hSmax at this
-        exact this
+      have hCgeQ: P g ≥ q := this
       -- and now the same helper we used before, but in the other direction:
       have {α:Type} {q:Nat} {g:α} {G:α→Nat} (_:q<G g) (_:G g≤q) : False := by omega
       exact this hCltQ hCgeQ
@@ -94,7 +94,7 @@ lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
 
-lemma c_prime (α: Type) [PrimeGen α] [PrimeSieve α] (g:α)
+lemma c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
   : Nat.Prime (C g) := by
     set c := C g
     have hfac: ∀ q < C g, Nat.Prime q → ¬ q ∣ c := by
@@ -121,7 +121,7 @@ lemma c_prime (α: Type) [PrimeGen α] [PrimeSieve α] (g:α)
 
 -- demonstrate that a sieve generates the next consecutive prime at each step.
 -- "we have a new, bigger prime, and there is no prime between them".
-theorem hs_suffice (α : Type) [PrimeGen α] [PrimeSieve α] (g:α)
+theorem hs_suffice (α : Type) [SieveState α] [PrimeSieve α] (g:α)
   :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q:NPrime, P g < q ∧  q < C g) := by
     split_ands
     · exact c_prime α g
