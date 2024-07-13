@@ -76,7 +76,7 @@ def fpow (f : α → α) (n:Nat) (x₀ : α) : List α :=
   let rec aux (n:Nat) (x:α) (acc:List α) :=
     if n = 0 then x::acc
     else aux (n-1) (f x) (x::acc)
-  aux n x₀ [] |>.reverse
+  aux (n-1) x₀ [] |>.reverse
 
 #eval fpow (λn => n+1) 10 0
 
