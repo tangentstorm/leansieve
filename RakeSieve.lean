@@ -16,8 +16,32 @@ def RakeSieve.init : RakeSieve :=
     rm := idrm.gte 2,
     p := ⟨2, Nat.prime_two⟩,
     c := 3,
-    hCinR := sorry
-    hRmin := sorry }
+    hCinR := by
+      -- clearly 3 isn't divisible by 2, so is in r
+      dsimp[R]; simp; intro q hq
+      have : q.val = 2 := by
+        have := q.prop; rw[Nat.prime_def_lt] at this
+        have : q.val ≥ 2 := this.left
+        have : q.val ≤ 2 := by aesop
+        omega
+      aesop
+    hRmin := by
+      -- to show that every number in R 2 is ≥ 3,
+      -- show that an r∈R 2 where r<3 leads to a contradiction.
+      dsimp[R]; intro r ⟨hr, hrr⟩
+      by_contra h; simp_all
+      -- r ≥ 2 and r < 3, so r must be 2
+      have r2 : r = 2 := by omega
+      -- but R 2 means not divisible by primes ≤ 2
+      let p2 : NPrime := ⟨2, Nat.prime_two⟩
+      -- now we can use hrr to prove ¬2∣2, which is absurd
+      specialize hrr p2
+      have : p2 ≤ p2 := by
+        have : p2.val ≤ p2.val := by aesop
+        exact this
+      apply hrr at this
+      rw[r2] at this
+      aesop }
 
 def RakeSieve.next (x : RakeSieve) (hC: Nat.Prime x.c) : RakeSieve :=
   let p := x.c
