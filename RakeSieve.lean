@@ -5,9 +5,9 @@ import PrimeSieve
 structure RakeSieve where
   prop : Nat -> Prop
   rm: RakeMap prop
-  p : NPrime
+  p : NPrime               -- the current prime
   c : Nat                  -- the canditate for next prime
-  -- Q : Array Nat         -- queue of found primes
+  -- Q : Array RakeMap     -- queue of found primes
 
 def RakeSieve.init : RakeSieve :=
   { prop := λ n => True ∧ n ≥ 2,
@@ -30,14 +30,11 @@ instance : SieveState RakeSieve where
 
 open SieveState
 
-theorem RakeSieve.hCinR  (g:RakeSieve) : C g ∈ R g            -- C is an element of R
+theorem RakeSieve.hCinR  (g:RakeSieve) : C g ∈ R (P g)            -- C is an element of R
   := sorry
-theorem RakeSieve.hRmin  (g:RakeSieve) : ∀ n ∈ R g, C g ≤ n   -- C is min of R
-  := sorry
-theorem RakeSieve.hCgtP  (g:RakeSieve) : C g > P g            -- C > P
+theorem RakeSieve.hRmin  (g:RakeSieve) : ∀ n ∈ R (P g), C g ≤ n   -- C is min of R
   := sorry
 
 instance : PrimeSieve RakeSieve where
   hCinR := RakeSieve.hCinR
   hRmin := RakeSieve.hRmin
-  hCgtP := RakeSieve.hCgtP

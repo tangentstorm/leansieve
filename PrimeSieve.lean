@@ -9,19 +9,14 @@ class SieveState (α : Type) where
   hNext (s:α) (hC: Nat.Prime (C s)) : (P (next s hC) = C s)
 open SieveState
 
-section prime_sieve
-  variable {α : Type} [SieveState α]  (x: α)
-  -- S: the set of "known primes", ≤ P
-  def S : Set NPrime := { p | p ≤ (P x) }
-  -- R: the set of "remaining" numbers, coprime to all known primes
-  -- describe the set of naturals with no prime factors less than some c
-  def R : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ (S x), ¬(p.val ∣ n) }
-end prime_sieve
+-- R: the "residue", or "remaining" nats coprime to all primes < p.
+-- In a sieve, these are the numbers that haven't yet been "sifted out."
+def R (P:NPrime): Set Nat := { n | n ≥ 2 ∧ ∀ p ≤ P, ¬(p.val ∣ n) }
 
 /-- everything in R is greater than P. we use this to show C > P later. -/
-lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈(R g), r > (P g)) := by
+lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) := by
   -- argument: R and S together say ∀ p:prime ≤ P, ¬ p∣r
-  intro r hrr;  unfold R S at hrr
+  intro r hrr;  unfold R at hrr
   -- if r is ≤ P, there is a contradiction.
   by_contra h; simp at h
   -- r (like all natural numbers) has a minimum prime factor f
@@ -46,8 +41,8 @@ and then repeatedly:
   - obtains the minimum of this set as the next prime
   - eliminates multiples of the new prime. -/
 class PrimeSieve (α : Type) [SieveState α] where
-  hCinR  (g:α) : C g ∈ R g            -- C is an element of R
-  hRmin  (g:α) : ∀ n ∈ R g, C g ≤ n   -- C is min of R
+  hCinR  (g:α) : C g ∈ R (P g)            -- C is an element of R
+  hRmin  (g:α) : ∀ n ∈ R (P g), C g ≤ n   -- C is min of R
 open PrimeSieve
 
 theorem c_gt_p (α : Type) [SieveState α] [PrimeSieve α] (g:α) : C g > P g := by
@@ -58,10 +53,10 @@ theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
   : ¬ ∃ q:NPrime, P g < q ∧ q < C g := by
     intro ⟨q, ⟨hCltQ, hQltG⟩⟩ -- `intro q` on a ¬∃ goal requires we find a contradiction.
     -- hRmin tells us that that C is the min of the set R.
-    have hRmin: ∀n ∈ R g, C g ≤ n := PrimeSieve.hRmin <| g
+    have hRmin: ∀n ∈ R (P g), C g ≤ n := PrimeSieve.hRmin <| g
 
     -- demonstrating `q ∈ R` would show the contradiction since `q<P` and `P` is min of `R`
-    suffices hQinR: q.val ∈ R g from by
+    suffices hQinR: q.val ∈ R (P g) from by
       apply hRmin at hQinR
       -- the contradiction is between hqltG:(q < G g) and hQinR:(R g ≤ q)
       -- Lean can't see this for the actual definition, so give it some help:
@@ -79,7 +74,7 @@ theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
     -- part 1. q ∈ R → q ≥ 2.
     case left := hqgt2
     -- part 2. q ∈ R → ¬∃ p ∈ S, p∣q
-    case right: ∀ p ∈ (S g), ¬(p.val ∣ q.val) := by
+    case right: ∀ p ≤ (P g), ¬(p.val ∣ q.val) := by
       intro p hp hpq -- assume p exists and p|q. show a contradiction.
       -- since that p|q and both are prime, it follows that p=q.
       have hpP: Nat.Prime p.val := by unfold NPrime at p; aesop
@@ -87,9 +82,7 @@ theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
         have : p.val ≠ 1 := Ne.symm <| Nat.ne_of_lt <| Nat.Prime.one_lt hpP
         have : p.val ∣ q.val ↔ p.val = q.val := by exact Nat.prime_dvd_prime_iff_eq hpP hqP
         symm at this; aesop
-      -- q∈S and S is defined as primes ≤ P g
-      have : q ∈ (S g) := by aesop
-      have hCgeQ: P g ≥ q := this
+      have hCgeQ: P g ≥ q := by aesop
       -- and now the same helper we used before, but in the other direction:
       have {α:Type} {q:Nat} {g:α} {G:α→Nat} (_:q<G g) (_:G g≤q) : False := by omega
       exact this hCltQ hCgeQ
@@ -124,7 +117,7 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
       by_cases hq: q ≤ (P g)
       case pos => -- ¬p∣C because C∈R and that's how R is defined
         have hCinR := PrimeSieve.hCinR g
-        unfold R S at hCinR; simp at hCinR
+        unfold R at hCinR; simp at hCinR
         aesop
       case neg => -- we have P < q and q < C but this can't happen
         have : (P g) < q := by exact Nat.gt_of_not_le hq
