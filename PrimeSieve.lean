@@ -26,7 +26,6 @@ and then repeatedly:
   - obtains the minimum of this set as the next prime
   - eliminates multiples of the new prime. -/
 class PrimeSieve (α : Type) [SieveState α] where
-  --hSmax  (g:α) : ∀ p ∈ S g, P g ≥ p   -- P is the max of S
   hCinR  (g:α) : C g ∈ R g            -- C is an element of R
   hRmin  (g:α) : ∀ n ∈ R g, C g ≤ n   -- C is min of R
   hCgtP  (g:α) : C g > P g            -- C > P
@@ -94,7 +93,7 @@ lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
 
-lemma c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
+theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
   : Nat.Prime (C g) := by
     set c := C g
     have hfac: ∀ q < C g, Nat.Prime q → ¬ q ∣ c := by
