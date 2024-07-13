@@ -18,6 +18,26 @@ section prime_sieve
   def R : Set Nat := { n | n ≥ 2 ∧ ∀ p ∈ (S x), ¬(p.val ∣ n) }
 end prime_sieve
 
+/-- everything in R is greater than P. we use this to show C > P later. -/
+lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈(R g), r > (P g)) := by
+  -- argument: R and S together say ∀ p:prime ≤ P, ¬ p∣r
+  intro r hrr;  unfold R S at hrr
+  -- if r is ≤ P, there is a contradiction.
+  by_contra h; simp at h
+  -- r (like all natural numbers) has a minimum prime factor f
+  have : r ≠ 1 := by aesop -- R say r ≥ 2
+  obtain ⟨f, hf', hfr⟩ : ∃ f, Nat.Prime f ∧ f ∣ r :=
+      Nat.exists_prime_and_dvd ‹r ≠ 1›
+  -- from a chain of relationships we can conclude that f≤P...
+  have : 0 < r := by exact Nat.zero_lt_of_lt hrr.left
+  have : f ≤ r := Nat.le_of_dvd this hfr
+  have : f ≤ (P g) := by omega
+  let f' : NPrime := ⟨f, hf'⟩
+  have : f' ∈ {p | p ≤ P g} := by aesop
+  --- but the R says primes≤P won't divide r
+  have : ¬ f ∣ r := by aesop
+  contradiction -- with hfr
+
 /--
 A PrimeSieve is a PrimeGen that uses a SieveState to generate primes.
 In practice, this means that it somehow models the set of natural
@@ -28,9 +48,11 @@ and then repeatedly:
 class PrimeSieve (α : Type) [SieveState α] where
   hCinR  (g:α) : C g ∈ R g            -- C is an element of R
   hRmin  (g:α) : ∀ n ∈ R g, C g ≤ n   -- C is min of R
-  hCgtP  (g:α) : C g > P g            -- C > P
 open PrimeSieve
 
+theorem c_gt_p (α : Type) [SieveState α] [PrimeSieve α] (g:α) : C g > P g := by
+  have := PrimeSieve.hCinR g
+  exact r_gt_p α g (C g) this
 
 theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
   : ¬ ∃ q:NPrime, P g < q ∧ q < C g := by
@@ -113,7 +135,7 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
     have h2c: 2 ≤ C g := by
       set p := P g
       have : p.val ≥ 2 := by exact Nat.Prime.two_le p.prop
-      have : c > p.val := hCgtP g
+      have : c > p.val := c_gt_p α g
       omega
     exact no_prime_factors_im_no_factors h2c hfac
 
@@ -124,5 +146,5 @@ theorem hs_suffice (α : Type) [SieveState α] [PrimeSieve α] (g:α)
   :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q:NPrime, P g < q ∧  q < C g) := by
     split_ands
     · exact c_prime α g
-    . exact PrimeSieve.hCgtP g
+    . exact c_gt_p α g
     · exact no_skipped_prime α g
