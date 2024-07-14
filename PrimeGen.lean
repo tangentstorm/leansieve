@@ -21,7 +21,6 @@ open PrimeGen
 section simple_gen
 
   abbrev prime_gt n p := Nat.Prime p ∧ n < p
-  instance : Decidable (prime_gt c p) := by rw[prime_gt]; apply inferInstanceAs
   theorem ex_prime_gt (c:Nat) : ∃ p, prime_gt c p := by
     simp[prime_gt]
     let d := c + 1 -- because the line below has ≤ and we need <
@@ -36,15 +35,13 @@ section simple_gen
     hp : Nat.Prime p
     hpgt : prime_gt n p
     hmin : ∀q:Nat, q < p → (¬ prime_gt n q)
-    hmin' : ∀q:Nat, prime_gt n q → p ≤ q
 
   def min_prime_gt (n: Nat) : MinPrimeGt n :=
     let e := ex_prime_gt n
     { p:=Nat.find e,
       hp:=by have h:= Nat.find_spec e; simp[h],
       hpgt:=Nat.find_spec e,
-      hmin:= by exact fun {q} a => Nat.find_min e a,
-      hmin':=by exact fun q a => Nat.find_min' e a}
+      hmin:= by exact fun {q} a => Nat.find_min e a}
 
   structure SimpleGen where
     p : NPrime
