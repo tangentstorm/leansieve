@@ -15,9 +15,7 @@ def R (P:NPrime): Set Nat := { n | n ≥ 2 ∧ ∀ p ≤ P, ¬(p.val ∣ n) }
 
 -- a simpler version because using NPrime in a proofs tends to require
 -- quite a bit of unwrapping and re-wrapping.
--- !! actually this a slightly different but equivalent statement,
---    because it describes every Nat q ≤ P, instead of every prime ≤ P
-def R'(P:Nat) : Set Nat := { n | n≥2 ∧ ∀q≤P, q≥2 → ¬q∣n }
+def R'(P:Nat) : Set Nat := { n | n≥2 ∧ ∀q≤P, Nat.Prime q → ¬q∣n }
 
 lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
   have := p.prop
@@ -39,6 +37,7 @@ lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
     -- and p has a prime factor f.
     have : q ≠ 1 := by aesop
     obtain ⟨f, ⟨hf0, hf1⟩⟩ := Nat.exists_prime_and_dvd this
+    have : 2 ≤ q := Nat.Prime.two_le hq2
     have : 0 < q := by omega
     have : f ≤ q := Nat.le_of_dvd this hf1
     let f': NPrime := ⟨f, hf0⟩
@@ -49,11 +48,9 @@ lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
     by_contra hqx
     have : f ∣ x := by exact Nat.dvd_trans hf1 hqx
     contradiction
-  case mpr =>
+  case mpr : ¬↑q ∣ x =>
     apply hx1 at hq
-    have : 2≤q.val := by exact nprime_ge_2 q
-    apply hq at this
-    exact this
+    exact hq q.prop
 
 /-- everything in R is greater than P. we use this to show C > P later. -/
 lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) := by
@@ -85,7 +82,7 @@ theorem r_next (p₀: Nat) (m: MinPrimeGt p₀) {n:Nat}
     let ⟨h₁,hinc⟩ := m.hpgt; let hmin := m.hmin; set p₁ := m.p
     unfold R'; simp; apply Iff.intro
     all_goals intro hn; apply And.intro; simp_all
-    · show ∀ q ≤ p₁, 2 ≤ q → ¬q ∣ n
+    · show ∀ q ≤ p₁, Nat.Prime q → ¬q ∣ n
       intro q hq hq2
       by_cases hq₀: q≤p₀
       case pos => simp_all
@@ -104,21 +101,20 @@ theorem r_next (p₀: Nat) (m: MinPrimeGt p₀) {n:Nat}
           omega
         · exact hf'
         · show p₀ < f
+          simp_all
           by_contra h
           have : f ≤ p₀ := by omega
           have : 2 ≤ f := by exact Nat.Prime.two_le hf'
-          apply hn.left.right at this
+          simp_all
+          have : ¬ f ∣ n := by aesop
           have : f ∣ n := by exact Nat.dvd_trans hfq hqn
           contradiction
-          omega
-    · show ∀ q ≤ p₀, 2 ≤ q → ¬q ∣ n
+    · show ∀ q ≤ p₀, Nat.Prime q → ¬q ∣ n
       intro q hq hq2
       have : q ≤ p₁ := by omega
       exact (hn.right q this) hq2
     · show ¬p₁ ∣ n
-      have h := hn.right p₁
-      rw[Nat.prime_def_lt] at h₁
-      omega
+      simp_all
 
 /- A prime sieve implementation can model `R p` by providing
 a bijection between `R p` and its internal data structures.
