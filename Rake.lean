@@ -41,8 +41,7 @@ def Rake.gte (r : Rake) (n : Nat) : Rake := {
   d := r.d
   seqs := r.seqs.map (λ s => ⟨ASeq.gte s.val n, (by
     have : s.val.d = r.d := s.property
-    symm at this
-    simp[this]
+    symm at this; simp[this]
     apply ASeq.gte_same_delta s.val n)⟩) |> List.mergeSort (·≤·)
   hsort := by apply List.sorted_mergeSort
   hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
@@ -50,8 +49,23 @@ def Rake.gte (r : Rake) (n : Nat) : Rake := {
 def Rake.rem (r : Rake) (n : Nat) : Rake := {
   d := r.d
   seqs := r.seqs |> List.mergeSort (·≤·)
-  hsort := sorry -- by apply List.sorted_mergeSort
+  hsort := by apply List.sorted_mergeSort,
   hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
+
+/-- proof that if a rake produces a term, it's because one of the sequences
+    it contains produces that term. -/
+lemma Rake.ex_seq (rake: Rake)
+  : (rake.term m = n) → (∃seq ∈ rake.seqs, ∃m₁, seq m₁ = n) := by
+  unfold Rake.term; intro hseq; simp_all
+  let q := rake.seqs.length
+  have : m%q < rake.seqs.length := Nat.mod_lt _ rake.hsize
+  let seq := rake.seqs[m%q]; use seq
+  apply And.intro
+  · show seq ∈ rake.seqs
+    exact List.get_mem rake.seqs (m % q) this
+  · show ∃ m₁, seq m₁ = n
+    dsimp[seq,q]
+    use m/rake.seqs.length
 
 -- rakemap --------------------------------------------------------------------
 
@@ -64,23 +78,6 @@ structure RakeMap (prop: Nat → Prop) where
 def idrm : RakeMap (λ _ => True) := {
   rake := idr,
   hbij := by intro n; simp[Rake.term, idr]; unfold dseq; unfold term; simp }
-
-/-- proof that if a rakemap produces a term, it's because one of the sequences
-    it contains produces that term. -/
-lemma RakeMap.ex_seq (rm: RakeMap prop)
-  : (rm.rake.term m = n) → (∃seq ∈ rm.rake.seqs, ∃m₁, seq m₁ = n) := by
-  unfold Rake.term
-  intro hseq
-  set q := rm.rake.seqs.length
-  have : m%q < rm.rake.seqs.length := Nat.mod_lt _ rm.rake.hsize
-  let seq := rm.rake.seqs[m%q]
-  set m1 := m/rm.rake.seqs.length
-  use seq
-  apply And.intro
-  · exact List.get_mem rm.rake.seqs (m % q) this
-  · dsimp at hseq
-    dsimp[seq,q]
-    use m1
 
 section gte_lemmas
 
