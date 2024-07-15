@@ -17,8 +17,7 @@ def R (P:NPrime): Set Nat := { n | n ≥ 2 ∧ ∀ p ≤ P, ¬(p.val ∣ n) }
 -- quite a bit of unwrapping and re-wrapping.
 -- !! actually this a slightly different but equivalent statement,
 --    because it describes every Nat q ≤ P, instead of every prime ≤ P
-def R'(P:Nat) (_hp: Nat.Prime P) : Set Nat :=
-  { n | n ≥ 2 ∧ ∀ q ≤ P, q ≥ 2 → ¬(q ∣ n) }
+def R'(P:Nat) : Set Nat := { n | n≥2 ∧ ∀q≤P, q≥2 → ¬q∣n }
 
 lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
   have := p.prop
@@ -27,7 +26,7 @@ lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
 
 -- equivalence proof between R and R', with way too much of
 -- the aforementioned unwrapping and rewrapping.  :)
-@[simp] lemma r'simp (P:NPrime) : (R P) = (R' P.val P.prop) := by
+@[simp] lemma r'simp (P:NPrime) : (R P) = (R' P.val) := by
   unfold R R'
   rw[Set.ext_iff]; intro x
   apply Iff.intro
@@ -81,10 +80,10 @@ lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) :=
   R p₁ = { n:(R p₀) | ¬ p₁∣n }
   This corresponds to the idea that each time you identify
   the next prime in a sieve, you sift out all its multiples. -/
-theorem r_next  {p₀ p₁: Nat} {h₀ : Nat.Prime p₀} {h₁ : Nat.Prime p₁}
-    (hinc: p₀ < p₁) (hmin: ¬∃ q, (Nat.Prime q) ∧ (p₀<q) ∧ (q<p₁))
-  : (∀n, (n ∈ R' p₀ h₀ ∧ ¬↑p₁ ∣ n) ↔ (n ∈ R' p₁ h₁)) := by
-    intro n; unfold R'; simp; apply Iff.intro
+theorem r_next (p₀: Nat) (m: MinPrimeGt p₀) {n:Nat}
+  : (n ∈ R' p₀ ∧ ¬↑m.p ∣ n) ↔ (n ∈ R' m.p) := by
+    let ⟨h₁,hinc⟩ := m.hpgt; let hmin := m.hmin; set p₁ := m.p
+    unfold R'; simp; apply Iff.intro
     all_goals intro hn; apply And.intro; simp_all
     · show ∀ q ≤ p₁, 2 ≤ q → ¬q ∣ n
       intro q hq hq2
@@ -95,7 +94,14 @@ theorem r_next  {p₀ p₁: Nat} {h₀ : Nat.Prime p₀} {h₁ : Nat.Prime p₁}
         simp at hq₀
         have : q ≠ 1 := by aesop
         obtain ⟨f, hf', hfq⟩ := Nat.exists_prime_and_dvd ‹q ≠ 1›
-        absurd hmin; use f; split_ands
+        have hmin := m.hmin
+        absurd hmin; simp; use f; split_ands
+        · show f < m.p
+          have : 0 < q := by omega
+          have : f ≤ q := by exact Nat.le_of_dvd this hfq
+          have : q ≠ p₁ := by aesop
+          have : q < p₁ := by omega
+          omega
         · exact hf'
         · show p₀ < f
           by_contra h
@@ -104,12 +110,6 @@ theorem r_next  {p₀ p₁: Nat} {h₀ : Nat.Prime p₀} {h₁ : Nat.Prime p₁}
           apply hn.left.right at this
           have : f ∣ n := by exact Nat.dvd_trans hfq hqn
           contradiction
-          omega
-        · show f < p₁
-          have : 0 < q := by omega
-          have : f ≤ q := by exact Nat.le_of_dvd this hfq
-          have : q ≠ p₁ := by aesop
-          have : q < p₁ := by omega
           omega
     · show ∀ q ≤ p₀, 2 ≤ q → ¬q ∣ n
       intro q hq hq2
@@ -132,13 +132,11 @@ prime `p₁` is equivalent to the expression  `∧ ¬(p₁∣n)`.
 The following theorem allows us to construct a predicate for
 membership in `R pₙ` by induction using predicates of this
 form at each step. -/
-theorem r_next_prop {p₀ p₁ n:Nat} (h₀ h₁: Nat → Prop)
-  (hp₀ : Nat.Prime p₀) (hp₁ : Nat.Prime p₁)
-  (hh₀: h₀ n ↔ n ∈ R' p₀ hp₀) (hh₁: h₁ n ↔ h₀ n ∧ ¬(p₁ ∣ n))
-  (hinc: p₀ < p₁) (hmin: ¬∃q, Nat.Prime q ∧ p₀<q ∧ q<p₁)
-  : (h₁ n ↔ n ∈ R' p₁ hp₁) := by
+theorem r_next_prop {p₀ n:Nat} {h₀ h₁: Nat → Prop} {m : MinPrimeGt p₀}
+  (hh₀: h₀ n ↔ n ∈ R' p₀) (hh₁: h₁ n ↔ h₀ n ∧ ¬(m.p ∣ n))
+  : (h₁ n ↔ n ∈ R' m.p) := by
   simp[hh₁, hh₀]
-  exact @r_next p₀ p₁ hp₀ hp₁ hinc hmin n
+  exact r_next p₀ m
 
 /--
 A PrimeSieve is a PrimeGen that uses a SieveState to generate primes.

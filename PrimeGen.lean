@@ -18,28 +18,27 @@ class PrimeGen (α : Type) where
   hP' (g:α) : (¬∃ q:NPrime, P g < q ∧  q < P (next g))
 open PrimeGen
 
+abbrev PrimeGt (n p:Nat) := Nat.Prime p ∧ n < p
+
+structure MinPrimeGt (n:Nat) where
+  p : Nat
+  hpgt : PrimeGt n p
+  hmin : ∀q:Nat, q < p → (¬ PrimeGt n q)
+def MinPrimeGt.p' (m:MinPrimeGt n) := m.hpgt.left
+
 section simple_gen
 
-  abbrev prime_gt n p := Nat.Prime p ∧ n < p
-  theorem ex_prime_gt (c:Nat) : ∃ p, prime_gt c p := by
-    simp[prime_gt]
+  theorem ex_prime_gt (c:Nat) : ∃ p, PrimeGt c p := by
     let d := c + 1 -- because the line below has ≤ and we need <
     let ⟨p, hcp, hprime⟩ : ∃ (p : ℕ), d ≤ p ∧ Nat.Prime p :=
       Nat.exists_infinite_primes d
-    use p; apply And.intro
+    use p; constructor
     · exact hprime
     · linarith
-
-  structure MinPrimeGt (n:Nat) where
-    p : Nat
-    hp : Nat.Prime p
-    hpgt : prime_gt n p
-    hmin : ∀q:Nat, q < p → (¬ prime_gt n q)
 
   def min_prime_gt (n: Nat) : MinPrimeGt n :=
     let e := ex_prime_gt n
     { p:=Nat.find e,
-      hp:=by have h:= Nat.find_spec e; simp[h],
       hpgt:=Nat.find_spec e,
       hmin:= by exact fun {q} a => Nat.find_min e a}
 
@@ -48,7 +47,7 @@ section simple_gen
     c : MinPrimeGt p.val
 
   def SimpleGen.next (g:SimpleGen) : SimpleGen :=
-    { p:=⟨g.c.p, g.c.hp⟩, c:=min_prime_gt g.c.p }
+    { p:=⟨g.c.p, g.c.hpgt.left⟩, c:=min_prime_gt g.c.p }
 
   instance : PrimeGen SimpleGen where
     P g := g.p
