@@ -11,46 +11,7 @@ open SieveState
 
 -- R: the "residue", or "remaining" nats coprime to all primes < p.
 -- In a sieve, these are the numbers that haven't yet been "sifted out."
-def R (P:NPrime): Set Nat := { n | n ≥ 2 ∧ ∀ p ≤ P, ¬(p.val ∣ n) }
-
--- a simpler version because using NPrime in a proofs tends to require
--- quite a bit of unwrapping and re-wrapping.
-def R'(P:Nat) : Set Nat := { n | n≥2 ∧ ∀q≤P, Nat.Prime q → ¬q∣n }
-
-lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
-  have := p.prop
-  rw[Nat.prime_def_lt] at this
-  exact this.left
-
--- equivalence proof between R and R', with way too much of
--- the aforementioned unwrapping and rewrapping.  :)
-@[simp] lemma r'simp (P:NPrime) : (R P) = (R' P.val) := by
-  unfold R R'
-  rw[Set.ext_iff]; intro x
-  apply Iff.intro
-  all_goals intro hx; simp_all; have ⟨_, hx1⟩ := hx
-  all_goals simp_all; intro q hq
-  intro hq2
-  case mp : ¬ q ∣ x =>
-    -- hx1 says that no prime less than P divides x
-    -- the p in scope is not a prime. but.. q ≤ P.val
-    -- and p has a prime factor f.
-    have : q ≠ 1 := by aesop
-    obtain ⟨f, ⟨hf0, hf1⟩⟩ := Nat.exists_prime_and_dvd this
-    have : 2 ≤ q := Nat.Prime.two_le hq2
-    have : 0 < q := by omega
-    have : f ≤ q := Nat.le_of_dvd this hf1
-    let f': NPrime := ⟨f, hf0⟩
-    specialize hx1 f'
-    have : f ≤ P.val := by omega
-    have : f' ≤ P := by aesop
-    have : ¬ f ∣ x := by aesop
-    by_contra hqx
-    have : f ∣ x := by exact Nat.dvd_trans hf1 hqx
-    contradiction
-  case mpr : ¬↑q ∣ x =>
-    apply hx1 at hq
-    exact hq q.prop
+def R(P:Nat) : Set Nat := { n | n≥2 ∧ ∀q≤P, Nat.Prime q → ¬q∣n }
 
 /-- everything in R is greater than P. we use this to show C > P later. -/
 lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) := by
@@ -78,9 +39,9 @@ lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) :=
   This corresponds to the idea that each time you identify
   the next prime in a sieve, you sift out all its multiples. -/
 theorem r_next (p₀: Nat) (m: MinPrimeGt p₀) {n:Nat}
-  : (n ∈ R' p₀ ∧ ¬↑m.p ∣ n) ↔ (n ∈ R' m.p) := by
+  : (n ∈ R p₀ ∧ ¬↑m.p ∣ n) ↔ (n ∈ R m.p) := by
     let ⟨h₁,hinc⟩ := m.hpgt; let hmin := m.hmin; set p₁ := m.p
-    unfold R'; simp; apply Iff.intro
+    unfold R; simp; apply Iff.intro
     all_goals intro hn; apply And.intro; simp_all
     · show ∀ q ≤ p₁, Nat.Prime q → ¬q ∣ n
       intro q hq hq2
@@ -129,8 +90,8 @@ The following theorem allows us to construct a predicate for
 membership in `R pₙ` by induction using predicates of this
 form at each step. -/
 theorem r_next_prop {p₀ n:Nat} {h₀ h₁: Nat → Prop} {m : MinPrimeGt p₀}
-  (hh₀: h₀ n ↔ n ∈ R' p₀) (hh₁: h₁ n ↔ h₀ n ∧ ¬(m.p ∣ n))
-  : (h₁ n ↔ n ∈ R' m.p) := by
+  (hh₀: h₀ n ↔ n ∈ R p₀) (hh₁: h₁ n ↔ h₀ n ∧ ¬(m.p ∣ n))
+  : (h₁ n ↔ n ∈ R m.p) := by
   simp[hh₁, hh₀]
   exact r_next p₀ m
 
@@ -170,19 +131,16 @@ theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
     unfold R; constructor
     · show q.val ≥ 2
       exact Nat.Prime.two_le q.prop
-    · show ∀ p ≤ (P g), ¬(p.val ∣ q.val)
-      intro p hp hpq -- assume p exists and p|q. show a contradiction.
+    · show ∀ p ≤ ↑(P g), Nat.Prime p → ¬(p ∣ q)
+      intro p hp hp' -- assume p exists and p|q. show a contradiction.
       -- since that p|q and both are prime, it follows that p=q.
-      have hp': Nat.Prime p.val := p.prop
-      have : p = q := by
-        have : p.val ≠ 1 := Ne.symm <| Nat.ne_of_lt <| Nat.Prime.one_lt hp'
-        have : p.val ∣ q.val ↔ p.val = q.val := by exact Nat.prime_dvd_prime_iff_eq hp' q.prop
-        symm at this; aesop
+      by_contra hpq
+      have := Nat.prime_dvd_prime_iff_eq hp' q.prop
+      simp[this] at hpq
       have hCgeQ: P g ≥ q := by aesop
       -- and now the same helper we used before, but in the other direction:
       have {α:Type} {q:Nat} {g:α} {G:α→Nat} (_:q<G g) (_:G g≤q) : False := by omega
       exact this hCltQ hCgeQ
-
 
 lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
   (h2lc: 2 ≤ c)                              -- c is at least 2
