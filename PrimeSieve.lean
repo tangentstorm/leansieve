@@ -16,7 +16,7 @@ def R (P:NPrime): Set Nat := { n | n ≥ 2 ∧ ∀ p ≤ P, ¬(p.val ∣ n) }
 -- a simpler version because using NPrime in a proofs tends to require
 -- quite a bit of unwrapping and re-wrapping.
 -- !! actually this a slightly different but equivalent statement,
---    because it describes every nat q ≤ P, instead of every prime ≤ P
+--    because it describes every Nat q ≤ P, instead of every prime ≤ P
 def R'(P:Nat) (_hp: Nat.Prime P) : Set Nat :=
   { n | n ≥ 2 ∧ ∀ q ≤ P, q ≥ 2 → ¬(q ∣ n) }
 
@@ -36,7 +36,7 @@ lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
   intro hq2
   case mp : ¬ q ∣ x =>
     -- hx1 says that no prime less than P divides x
-    -- but the p in scope is not a prime. but.. q ≤ P.val
+    -- the p in scope is not a prime. but.. q ≤ P.val
     -- and p has a prime factor f.
     have : q ≠ 1 := by aesop
     obtain ⟨f, ⟨hf0, hf1⟩⟩ := Nat.exists_prime_and_dvd this
@@ -44,9 +44,8 @@ lemma nprime_ge_2 (p:NPrime) : p ≥ (2:Nat) := by
     have : f ≤ q := Nat.le_of_dvd this hf1
     let f': NPrime := ⟨f, hf0⟩
     specialize hx1 f'
-    have : f  ≤ P.val := by omega
+    have : f ≤ P.val := by omega
     have : f' ≤ P := by aesop
-    apply hx1 at this
     have : ¬ f ∣ x := by aesop
     by_contra hqx
     have : f ∣ x := by exact Nat.dvd_trans hf1 hqx
@@ -85,11 +84,9 @@ lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) :=
 theorem r_next  {p₀ p₁: Nat} {h₀ : Nat.Prime p₀} {h₁ : Nat.Prime p₁}
     (hinc: p₀ < p₁) (hmin: ¬∃ q, (Nat.Prime q) ∧ (p₀<q) ∧ (q<p₁))
   : (∀n, (n ∈ R' p₀ h₀ ∧ ¬↑p₁ ∣ n) ↔ (n ∈ R' p₁ h₁)) := by
-    intro n; unfold R'; simp
-    apply Iff.intro
-    all_goals intro hn; apply And.intro
-    case mp.left => simp_all
-    case mp.right =>
+    intro n; unfold R'; simp; apply Iff.intro
+    all_goals intro hn; apply And.intro; simp_all
+    · show ∀ q ≤ p₁, 2 ≤ q → ¬q ∣ n
       intro q hq hq2
       by_cases hq₀: q≤p₀
       case pos => simp_all
@@ -98,31 +95,27 @@ theorem r_next  {p₀ p₁: Nat} {h₀ : Nat.Prime p₀} {h₁ : Nat.Prime p₁}
         simp at hq₀
         have : q ≠ 1 := by aesop
         obtain ⟨f, hf', hfq⟩ := Nat.exists_prime_and_dvd ‹q ≠ 1›
-        absurd hmin; use f
-        split_ands
-        · simp[hf']
-        · by_contra h
+        absurd hmin; use f; split_ands
+        · exact hf'
+        · show p₀ < f
+          by_contra h
           have : f ≤ p₀ := by omega
           have : 2 ≤ f := by exact Nat.Prime.two_le hf'
           apply hn.left.right at this
           have : f ∣ n := by exact Nat.dvd_trans hfq hqn
           contradiction
           omega
-        · have : 0 < q := by omega
+        · show f < p₁
+          have : 0 < q := by omega
           have : f ≤ q := by exact Nat.le_of_dvd this hfq
           have : q ≠ p₁ := by aesop
           have : q < p₁ := by omega
           omega
-    case mpr.left =>
-      apply And.intro
-      case left => simp_all
-      case right =>
-        intro q hq hq2
-        have h := hn.right q
-        have : q ≤ p₁ := by omega
-        apply h at this
-        exact this hq2
-    case mpr.right =>
+    · show ∀ q ≤ p₀, 2 ≤ q → ¬q ∣ n
+      intro q hq hq2
+      have : q ≤ p₁ := by omega
+      exact (hn.right q this) hq2
+    · show ¬p₁ ∣ n
       have h := hn.right p₁
       rw[Nat.prime_def_lt] at h₁
       omega
@@ -144,7 +137,7 @@ theorem r_next_prop {p₀ p₁ n:Nat} (h₀ h₁: Nat → Prop)
   (hh₀: h₀ n ↔ n ∈ R' p₀ hp₀) (hh₁: h₁ n ↔ h₀ n ∧ ¬(p₁ ∣ n))
   (hinc: p₀ < p₁) (hmin: ¬∃q, Nat.Prime q ∧ p₀<q ∧ q<p₁)
   : (h₁ n ↔ n ∈ R' p₁ hp₁) := by
-  simp[hh₁]; simp[hh₀]
+  simp[hh₁, hh₀]
   exact @r_next p₀ p₁ hp₀ hp₁ hinc hmin n
 
 /--
@@ -180,21 +173,16 @@ theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
     -- so now we just show hQinR. q∈R means q≥2 ∧ (¬∃p∈ S g, p∣q)
     -- both of these facts follow immediately from the fact that q is prime,
     -- provided we can *also* show that q itself is not an element of s.
-
-    -- (we'll need these two facts to prove both sides of goal).
-    have hqP: Nat.Prime q.val := by unfold NPrime at q; aesop
-    have hqgt2: q.val ≥ 2 := by simp[Nat.prime_def_lt] at hqP; omega
     unfold R; constructor
-    -- part 1. q ∈ R → q ≥ 2.
-    case left := hqgt2
-    -- part 2. q ∈ R → ¬∃ p ∈ S, p∣q
-    case right: ∀ p ≤ (P g), ¬(p.val ∣ q.val) := by
+    · show q.val ≥ 2
+      exact Nat.Prime.two_le q.prop
+    · show ∀ p ≤ (P g), ¬(p.val ∣ q.val)
       intro p hp hpq -- assume p exists and p|q. show a contradiction.
       -- since that p|q and both are prime, it follows that p=q.
-      have hpP: Nat.Prime p.val := by unfold NPrime at p; aesop
+      have hp': Nat.Prime p.val := p.prop
       have : p = q := by
-        have : p.val ≠ 1 := Ne.symm <| Nat.ne_of_lt <| Nat.Prime.one_lt hpP
-        have : p.val ∣ q.val ↔ p.val = q.val := by exact Nat.prime_dvd_prime_iff_eq hpP hqP
+        have : p.val ≠ 1 := Ne.symm <| Nat.ne_of_lt <| Nat.Prime.one_lt hp'
+        have : p.val ∣ q.val ↔ p.val = q.val := by exact Nat.prime_dvd_prime_iff_eq hp' q.prop
         symm at this; aesop
       have hCgeQ: P g ≥ q := by aesop
       -- and now the same helper we used before, but in the other direction:
@@ -209,7 +197,7 @@ lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
     have : ∀ m < c, m ∣ c → m=1 := by  -- c has no divisors but 1 and c
       intro m hmc hmdc  -- give names to the above assumptions
       by_contra         -- assume ¬(m=1) and show contradiction
-      obtain ⟨p, hpp, hpm⟩ : ∃ p, Nat.Prime p ∧ p ∣ m :=
+      obtain ⟨p, hp', hpm⟩ : ∃ p, Nat.Prime p ∧ p ∣ m :=
         Nat.exists_prime_and_dvd ‹m ≠ 1›
       have : p∣c := Nat.dvd_trans hpm hmdc
       have : ¬(p∣c) := by
@@ -217,7 +205,7 @@ lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
         have : 0 < m := Nat.pos_of_dvd_of_pos hmdc this
         have : p ≤ m := Nat.le_of_dvd this hpm
         have : p < c := by linarith
-        exact hnpf p this hpp
+        exact hnpf p this hp'
       contradiction
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
