@@ -15,7 +15,7 @@ class PrimeGen (α : Type) where
   P : α → NPrime
   init : α
   next : α → α
-  hP' (g:α) : (¬∃ q:NPrime, P g < q ∧  q < P (next g))
+  hP' (g:α) : (¬∃ q, Nat.Prime q ∧ P g < q ∧  q < P (next g))
 open PrimeGen
 
 abbrev PrimeGt (n p:Nat) := Nat.Prime p ∧ n < p
@@ -55,12 +55,11 @@ section simple_gen
     next := .next
     hP' g := by  -- goal: no prime q between g.p and (g.next.p = g.c.p)
       -- why? that would imply prime_gt (g.p) q, but hmin contradicts this
-      unfold SimpleGen.next; simp; intro q qgtp; by_contra hq
-      have h0 := g.c.hmin; simp at h0
+      unfold SimpleGen.next; simp; intro q hq' qgtp
+      have h0 := g.c.hmin; by_contra hq; simp_all
       apply h0 at hq
-      have : ¬q.val>g.p.val := by exact Nat.not_lt.mpr (hq q.prop)
-      have : ¬g.p < q := by aesop
-      contradiction
+      apply hq at hq'
+      omega
 
   open PrimeGen
 

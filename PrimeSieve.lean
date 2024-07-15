@@ -27,11 +27,7 @@ lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) :=
   have : 0 < r := by exact Nat.zero_lt_of_lt hrr.left
   have : f ≤ r := Nat.le_of_dvd this hfr
   have : f ≤ (P g) := by omega
-  let f' : NPrime := ⟨f, hf'⟩
-  have : f' ∈ {p | p ≤ P g} := by aesop
-  --- but the R says primes≤P won't divide r
-  have : ¬ f ∣ r := by aesop
-  contradiction -- with hfr
+  aesop
 
 
 /- if p₁ is the next consecutive prime after p₀ then
@@ -58,7 +54,6 @@ theorem r_next (p₀: Nat) (m: MinPrimeGt p₀) {n:Nat}
           have : 0 < q := by omega
           have : f ≤ q := by exact Nat.le_of_dvd this hfq
           have : q ≠ p₁ := by aesop
-          have : q < p₁ := by omega
           omega
         · exact hf'
         · show p₀ < f
@@ -112,35 +107,24 @@ theorem c_gt_p (α : Type) [SieveState α] [PrimeSieve α] (g:α) : C g > P g :=
   exact r_gt_p α g (C g) this
 
 theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
-  : ¬ ∃ q:NPrime, P g < q ∧ q < C g := by
-    intro ⟨q, ⟨hCltQ, hQltG⟩⟩ -- `intro q` on a ¬∃ goal requires we find a contradiction.
+  : ¬ ∃ q:Nat, Nat.Prime q ∧ P g < q ∧ q < C g := by
+    intro ⟨q, ⟨hQ', hPltQ, hQltC⟩⟩ -- `intro q` on a ¬∃ goal requires we find a contradiction.
     -- hRmin tells us that that C is the min of the set R.
     have hRmin: ∀n ∈ R (P g), C g ≤ n := PrimeSieve.hRmin <| g
 
     -- demonstrating `q ∈ R` would show the contradiction since `q<P` and `P` is min of `R`
-    suffices hQinR: q.val ∈ R (P g) from by
-      apply hRmin at hQinR
-      -- the contradiction is between hqltG:(q < G g) and hQinR:(R g ≤ q)
-      -- Lean can't see this for the actual definition, so give it some help:
-      have {α:Type} {q:Nat} {g:α} {G:α→Nat} (_:q<G g) (_:G g≤q) : False := by omega
-      exact this hQltG hQinR
+    suffices hQinR: q ∈ R (P g) from by apply hRmin at hQinR; omega
 
     -- so now we just show hQinR. q∈R means q≥2 ∧ (¬∃p∈ S g, p∣q)
     -- both of these facts follow immediately from the fact that q is prime,
     -- provided we can *also* show that q itself is not an element of s.
     unfold R; constructor
-    · show q.val ≥ 2
-      exact Nat.Prime.two_le q.prop
+    · show q ≥ 2 ; exact Nat.Prime.two_le hQ'
     · show ∀ p ≤ ↑(P g), Nat.Prime p → ¬(p ∣ q)
       intro p hp hp' -- assume p exists and p|q. show a contradiction.
       -- since that p|q and both are prime, it follows that p=q.
-      by_contra hpq
-      have := Nat.prime_dvd_prime_iff_eq hp' q.prop
-      simp[this] at hpq
-      have hCgeQ: P g ≥ q := by aesop
-      -- and now the same helper we used before, but in the other direction:
-      have {α:Type} {q:Nat} {g:α} {G:α→Nat} (_:q<G g) (_:G g≤q) : False := by omega
-      exact this hCltQ hCgeQ
+      have := Nat.prime_dvd_prime_iff_eq hp' hQ'
+      omega
 
 lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
   (h2lc: 2 ≤ c)                              -- c is at least 2
@@ -166,8 +150,8 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
   : Nat.Prime (C g) := by
     set c := C g
     have hfac: ∀ q < C g, Nat.Prime q → ¬ q ∣ c := by
-      intro q0 hqc hPq
-      set q : NPrime := ⟨q0,hPq⟩
+      intro q₀ hqc hPq
+      set q : NPrime := ⟨q₀,hPq⟩
       by_cases hq: q ≤ (P g)
       case pos => -- ¬p∣C because C∈R and that's how R is defined
         have hCinR := PrimeSieve.hCinR g
@@ -175,10 +159,8 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
         aesop
       case neg => -- we have P < q and q < C but this can't happen
         have : (P g) < q := by exact Nat.gt_of_not_le hq
-        have : (P g) < q ∧ q.val < C g := by aesop
         have := no_skipped_prime α g
-        rw[not_exists] at this; specialize this q
-        contradiction
+        absurd this; use q; aesop
     have h2c: 2 ≤ C g := by
       set p := P g
       have : p.val ≥ 2 := by exact Nat.Prime.two_le p.prop
@@ -190,7 +172,7 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
 -- demonstrate that a sieve generates the next consecutive prime at each step.
 -- "we have a new, bigger prime, and there is no prime between them".
 theorem hs_suffice (α : Type) [SieveState α] [PrimeSieve α] (g:α)
-  :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q:NPrime, P g < q ∧  q < C g) := by
+  :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q, Nat.Prime q ∧ P g < q ∧  q < C g) := by
     split_ands
     · exact c_prime α g
     . exact c_gt_p α g
