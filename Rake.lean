@@ -77,7 +77,7 @@ structure RakeMap (prop: Nat → Prop) where
  (it happens to be an identity map, but this is not necessary for proofs) -/
 def idrm : RakeMap (λ _ => True) := {
   rake := idr,
-  hbij := by intro n; simp[Rake.term, idr]; unfold dseq; unfold term; simp }
+  hbij := by intro n; simp[Rake.term, idr]; unfold dseq; unfold ASeq.term; simp }
 
 section gte_lemmas
 

@@ -1,5 +1,7 @@
 -- ASeq: Arithmetic Sequences
 import Mathlib.Tactic.Linarith
+syntax "assert" term : command
+macro_rules | `(assert $x) => `(example : $x := by decide)
 
 structure ASeq where  -- arithmetic sequence (k + dn)
   k : Nat  -- constant
@@ -22,6 +24,8 @@ instance : Ord ASeq where
     | .eq => compare s1.d s2.d
     | ord => ord
 
+namespace ASeq
+
 -- apply formula to n
 def term (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
 
@@ -36,9 +40,9 @@ def ids : ASeq := .mk 0 1
 def evens : ASeq := .mk 0 2
 def odds : ASeq := .mk 1 2
 
-#eval terms ids 10  -- [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-#eval terms evens 10  -- [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
-#eval terms odds 10  -- [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+assert terms ids 10   = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+assert terms evens 10 = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+assert terms odds 10  = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
 
 -- use sequence like a function
 instance : CoeFun ASeq fun _ => Nat → Nat := ⟨term⟩
@@ -58,14 +62,14 @@ instance : ToString ASeq where
     else s!"{s.k} + {s.d}n"
 
 -- limit results to those greater than or equal to n
-def ASeq.gte (s : ASeq) (n : Nat) : ASeq :=
+def gte (s : ASeq) (n : Nat) : ASeq :=
   if n ≤ s.k then s
   else if n ≤ s.d then .mk (s.k + s.d) s.d
   else
     let t := n / s.d
     ASeq.mk (s.k + s.d * (t + 1)) s.d
 
-lemma self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
+protected lemma self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
   set r := n % d with hr
   set q := n / d with hq
   simp[← hq]
@@ -74,21 +78,23 @@ lemma self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
   have : r < d := Nat.mod_lt n hd
   linarith
 
-theorem ASeq.gte_term (s : ASeq) (n : Nat) : s.d > 0 → n ≤ term (s.gte n) 0 := by
+theorem gte_term (s : ASeq) (n : Nat) : s.d > 0 → n ≤ term (s.gte n) 0 := by
   intro hdz
   simp[term, ASeq.gte]
   if hsk : n ≤ s.k then simp [hsk]
   else if hsd : n ≤ s.d then simp [hsd, hsk]; linarith
   else
     simp[hsk,hsd]
-    have hle: n ≤ s.d * (n/s.d + 1) := self_lt_mul_div_add n s.d hdz
+    have hle: n ≤ s.d * (n/s.d + 1) := ASeq.self_lt_mul_div_add n s.d hdz
     linarith
 
-theorem ASeq.gte_same_delta (s : ASeq) (n : Nat) : (s.gte n).d = s.d := by
+theorem gte_same_delta (s : ASeq) (n : Nat) : (s.gte n).d = s.d := by
   simp[ASeq.gte]
   if hsk : n ≤ s.k then simp [hsk]
   else if hsd : n ≤ s.d then simp [hsd, hsk]
   else simp[hsk,hsd]
 
-#eval terms evens 10         -- [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
-#eval terms (evens.gte 5) 10 -- [6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
+assert terms evens 10          = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+assert terms (evens.gte 5) 10  = [         6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
+
+end ASeq
