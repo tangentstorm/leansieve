@@ -26,7 +26,7 @@ def init : ASeqPrimeSieve := {
 def step (s0 : ASeqPrimeSieve) : Option ASeqPrimeSieve :=
   let ps := s0.ps ++ [s0.c]
   let d := s0.d * s0.c.val
-  let ss0 := (s0.ss.map fun s => partition s s0.c).join
+  let ss0 := (s0.ss.map fun s => s.partition s0.c).join
   let ss := (ss0.filter fun s => s.k % s0.c.val != 0)  -- strip out multiples of np
   let c := (List.minimum? $ ss.map fun s => s 0).get!  -- series with next prime
   if runtime_check : Nat.Prime c then
@@ -39,7 +39,7 @@ def printStep (s : ASeqPrimeSieve) (nterms : Nat) : IO Unit := do
   s.ss.forM fun s => do
     let width := 15
     let formula := (String.pushn (toString s) ' ' width).take width
-    IO.println s!"{formula}: {(terms s nterms)}"
+    IO.println s!"{formula}: {(s.terms nterms)}"
 
 def iters (n:Nat) : IO Unit := do
   let mut sv := init

@@ -1,5 +1,6 @@
 -- ASeq: Arithmetic Sequences
 import Mathlib.Tactic.Linarith
+
 syntax "assert" term : command
 macro_rules | `(assert $x) => `(example : $x := by decide)
 
@@ -24,30 +25,40 @@ instance : Ord ASeq where
     | .eq => compare s1.d s2.d
     | ord => ord
 
+def aseq (k:Nat) (d:Nat) := ASeq.mk k d
+
 namespace ASeq
+
+-- identity sequence
+def nats  := aseq 0 1
+def evens := aseq 0 2
+def odds  := aseq 1 2
 
 -- apply formula to n
 def term (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
 
--- apply one formula to another: r(n) := s(t(n))
-def compose (s : ASeq) (t : ASeq) : ASeq := .mk (s.k + s.d * t.k) (s.d * t.d)
+-- you can coerce an ASeq a function
+instance : CoeFun ASeq fun _ => Nat → Nat := ⟨term⟩
+
+assert (aseq 0 2) 10 = 20
 
 -- generate n terms of a sequence
 def terms (s : ASeq) (n : Nat) : List Nat := List.range n |>.map λ i => term s i
 
--- identity sequence
-def ids : ASeq := .mk 0 1
-def evens : ASeq := .mk 0 2
-def odds : ASeq := .mk 1 2
-
-assert terms ids 10   = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+assert terms nats  10 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 assert terms evens 10 = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
-assert terms odds 10  = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+assert terms odds  10 = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
 
--- use sequence like a function
-instance : CoeFun ASeq fun _ => Nat → Nat := ⟨term⟩
+-- apply one formula to another: r(n) := s(t(n))
+def compose (s t: ASeq) : ASeq := aseq (s.k + s.d * t.k) (s.d * t.d)
 
-#eval evens 10  -- 20
+theorem compose_def (s t: ASeq) {n:Nat} : (s.compose t) n = s (t n) :=
+  let y := (s.compose t) n
+  calc
+    y = s.k + (s.d * t.k) + (s.d * t.d * n) := by rfl
+    _ = s.k + s.d * (t.k + t.d * n) := by linarith
+    _ = s (t.k + t.d * n) := by rfl
+    _ = s (t n) := by rfl
 
 def partition (s : ASeq) (n : Nat) : List ASeq :=
   List.range n |>.map fun i => compose s $ .mk i n
