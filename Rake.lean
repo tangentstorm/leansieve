@@ -20,6 +20,22 @@ instance : IsTrans (DSeq d) (·≤·) := by
 
 def dseq (k : Nat) (d : Nat) : DSeq d := ⟨ASeq.mk k d, rfl⟩
 
+def DSeq.compose {d₀ d₁ : Nat} (s₀ : DSeq d₀) (s₁ : DSeq d₁) : DSeq (d₀*d₁) :=
+  ⟨s₀.val.compose s₁.val, (by
+    unfold ASeq.compose aseq; simp
+    have := s₀.prop
+    have := s₁.prop
+    aesop)⟩
+
+def DSeq.partition {d₀:Nat} (ds : DSeq d₀) (n:Nat) : List (DSeq (d₀*n)) :=
+  List.range n |>.map λi => ds.compose (dseq i n)
+
+@[simp] theorem DSeq.partition_length {d₀ n:Nat} {ds : DSeq d₀} : (ds.partition n).length = n := by
+  unfold partition; simp[List.length_map]
+
+@[simp] lemma sum_rep {x y: Nat} : Nat.sum (List.replicate x y) = x*y := by
+  induction x; simp_all; case succ hx => simp[hx]; linarith
+
 structure Rake where
   d : Nat
   seqs : List (DSeq d)
@@ -45,6 +61,18 @@ def Rake.gte (r : Rake) (n : Nat) : Rake := {
     apply ASeq.gte_same_delta s.val n)⟩) |> List.mergeSort (·≤·)
   hsort := by apply List.sorted_mergeSort
   hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
+
+def Rake.partition (r : Rake) (n: Nat) {hn: 0 < n} : Rake :=
+  let seqs' := r.seqs.map (λ s=> s.partition n) |>.join
+  have not_empty : seqs'.length > 0 := by
+    simp[seqs']; conv =>
+      rhs; simp[List.length_join']
+      rhs; arg 1; rw [@Function.comp_def]; simp
+    simp_all; exact r.hsize
+  { d := r.d * n,
+    seqs := seqs' |>.mergeSort (·≤·),
+    hsort := by apply List.sorted_mergeSort,
+    hsize := by simp[List.length_mergeSort]; exact not_empty }
 
 def Rake.rem (r : Rake) (n : Nat) : Rake := {
   d := r.d
