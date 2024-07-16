@@ -97,9 +97,11 @@ lemma Rake.ex_seq (rake: Rake)
 
 -- rakemap --------------------------------------------------------------------
 
-structure RakeMap (prop: Nat → Prop) where
+structure RakeMap (pred: Nat → Prop) where
   rake : Rake
-  hbij : ∀ n, prop n ↔ ∃ m, rake.term m = n
+  hbij : ∀ n, pred n ↔ ∃ m, rake.term m = n
+
+def RakeMap.pred {p:Nat → Prop} (_:RakeMap p) : Nat → Prop := p
 
 /-- proof that idr.term provides a bijection from Nat → Nat
  (it happens to be an identity map, but this is not necessary for proofs) -/

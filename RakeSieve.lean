@@ -7,15 +7,38 @@ structure RakeSieve where
   rm: RakeMap prop
   p : NPrime               -- the current prime
   c : Nat                  -- the canditate for next prime
+  hprop : ∀ n:Nat, prop n ↔ n ∈ R p
   hCinR : c ∈ R p
   hRmin : ∀ r ∈ R p, c ≤ r
   -- Q : Array RakeMap     -- queue of found primes
 
 def RakeSieve.init : RakeSieve :=
-  { prop := λ n => True ∧ n ≥ 2,
-    rm := idrm.gte 2,
-    p := ⟨2, Nat.prime_two⟩,
-    c := 3,
+  let rm := idrm.gte 2 |>.rem 2
+  let p := ⟨2, Nat.prime_two⟩
+  { prop := rm.pred, rm := rm, p := p, c := 3,
+    hprop := by
+      have hrm : rm.pred = λn => n ≥ 2 ∧ ¬ 2∣n := by simp[RakeMap.pred]
+      show ∀ n, rm.pred n ↔ n ∈ R p
+      have hbij := rm.hbij
+      unfold R; simp_all; intro n
+      apply Iff.intro
+      case mp =>
+        intro hn
+        apply And.intro
+        · rw[← hbij] at hn; exact hn.left
+        · intro q hq hq'
+          simp[←hbij] at hn
+          have := Nat.Prime.two_le hq'
+          have : 2=q := by omega
+          rw[this] at hn
+          omega
+      case mpr =>
+        simp; intro hn hn2; rw[←hbij]; simp_all
+        have hp2: p.val = 2 := by rfl
+        have hn2' := hn2
+        set p' := p.val
+        specialize hn2' p';  simp[hp2] at hn2'
+        exact hn2' Nat.prime_two
     hCinR := by
       -- clearly 3 isn't divisible by 2, so is in r
       unfold R; simp; intro q _ hq'
@@ -31,13 +54,31 @@ def RakeSieve.init : RakeSieve :=
       -- now we can use hrr to prove ¬2∣2, which is absurd
       have := Nat.prime_two; aesop }
 
-def RakeSieve.next (x : RakeSieve) (hC: Nat.Prime x.c) : RakeSieve :=
-  let p := x.c
-  let c := p + 1 -- TODO: actual next prime
-  let prop := λn => x.prop n ∧ ¬ x.c ∣ n
-  let rm := x.rm.rem x.c
-  { prop := prop, rm := rm, c := c, p := ⟨p, hC⟩,
-    hCinR := sorry,
+def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) : RakeSieve :=
+  let h₀ := x.prop
+  have hh₀ : ∀n, h₀ n ↔ n ∈ R x.p := x.hprop
+  have hpgt:PrimeGt x.p x.c := by
+    constructor
+    · exact hC₀
+    · have hCR₀ := x.hCinR
+      exact r_gt_p (↑x.p) x.c hCR₀
+  let m : MinPrimeGt x.p := { p:=x.c, hpgt:=hpgt, hmin:=sorry}
+  let p := m.p
+  let rm := x.rm.rem p
+  let c₁ := rm.rake.term 0
+  have hc₁: ∃ i, rm.rake.term i = c₁ := by
+    exact exists_apply_eq_apply (fun a => rm.rake.term a) 0
+  let h₁ := rm.pred
+  have hh₁ : ∀n, h₁ n ↔ h₀ n ∧ ¬(m.p∣n) := by simp[h₁, RakeMap.pred]
+  have hprop : ∀n, h₁ n ↔ n ∈ R m.p := by
+    intro n; exact r_next_prop (hh₀ n) (hh₁ n)
+  { prop := rm.pred, rm := rm, p := ⟨p, hC₀⟩, c := c₁,
+    hprop := hprop
+    hCinR := by
+      show c₁ ∈ R m.p
+      · have : h₁ c₁ := by rw[← rm.hbij] at hc₁; exact hc₁
+        specialize hprop c₁
+        exact hprop.mp this
     hRmin := sorry }
 
 instance : SieveState RakeSieve where
