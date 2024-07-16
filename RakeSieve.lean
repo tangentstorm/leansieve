@@ -6,7 +6,7 @@ structure RakeSieve where
   prop : Nat -> Prop
   rm: RakeMap prop
   p : NPrime               -- the current prime
-  c : Nat                  -- the canditate for next prime
+  c : Nat                  -- the candidate for next prime
   hprop : ∀ n:Nat, prop n ↔ n ∈ R p
   hCinR : c ∈ R p
   hRmin : ∀ r ∈ R p, c ≤ r
@@ -15,7 +15,7 @@ structure RakeSieve where
 def RakeSieve.init : RakeSieve :=
   let rm := idrm.gte 2 |>.rem 2
   let p := ⟨2, Nat.prime_two⟩
-  { prop := rm.pred, rm := rm, p := p, c := 3,
+  { prop := rm.pred, rm := rm, p := p, c := 3
     hprop := by
       have hrm : rm.pred = λn => n ≥ 2 ∧ ¬ 2∣n := by simp[RakeMap.pred]
       show ∀ n, rm.pred n ↔ n ∈ R p
@@ -54,15 +54,17 @@ def RakeSieve.init : RakeSieve :=
       -- now we can use hrr to prove ¬2∣2, which is absurd
       have := Nat.prime_two; aesop }
 
-def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) : RakeSieve :=
+def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): RakeSieve :=
   let h₀ := x.prop
   have hh₀ : ∀n, h₀ n ↔ n ∈ R x.p := x.hprop
+  have hCR₀ := x.hCinR
   have hpgt:PrimeGt x.p x.c := by
     constructor
     · exact hC₀
-    · have hCR₀ := x.hCinR
-      exact r_gt_p (↑x.p) x.c hCR₀
-  let m : MinPrimeGt x.p := { p:=x.c, hpgt:=hpgt, hmin:=sorry}
+    · exact r_gt_p (↑x.p) x.c hCR₀
+  have hmin: ∀ q < x.c, ¬PrimeGt (↑x.p) q := by
+    simp_all; intro q hq hq'; apply hNS at hq'; omega
+  let m : MinPrimeGt x.p := { p:=x.c, hpgt:=hpgt, hmin:=hmin}
   let p := m.p
   let rm := x.rm.rem p
   let c₁ := rm.rake.term 0

@@ -2,11 +2,12 @@ import PrimeGen
 
 set_option autoImplicit false
 
+abbrev nosk' P C := (¬∃ q:Nat, Nat.Prime q ∧ P < q ∧ q < C) -- no skipped prime
 class SieveState (α : Type) where
   P     (s:α) : NPrime
   C     (s:α) : Nat
-  next  (s:α) (hC: Nat.Prime (C s)) : α
-  hNext (s:α) (hC: Nat.Prime (C s)) : (P (next s hC) = C s)
+  next  (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)): α
+  hNext (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)): (P (next s hC hN) = C s)
 open SieveState
 
 -- R: the "residue", or "remaining" nats coprime to all primes < p.
