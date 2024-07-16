@@ -14,7 +14,7 @@ open SieveState
 def R(P:Nat) : Set Nat := { n | n≥2 ∧ ∀q≤P, Nat.Prime q → ¬q∣n }
 
 /-- everything in R is greater than P. we use this to show C > P later. -/
-lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) := by
+lemma r_gt_p (p:Nat) : (∀r∈R p, r > p) := by
   -- argument: R and S together say ∀ p:prime ≤ P, ¬ p∣r
   intro r hrr;  unfold R at hrr
   -- if r is ≤ P, there is a contradiction.
@@ -26,7 +26,7 @@ lemma r_gt_p (α : Type) [SieveState α] (g:α) : (∀r∈R (P g), r > (P g)) :=
   -- from a chain of relationships we can conclude that f≤P...
   have : 0 < r := by exact Nat.zero_lt_of_lt hrr.left
   have : f ≤ r := Nat.le_of_dvd this hfr
-  have : f ≤ (P g) := by omega
+  have : f ≤ p := by omega
   aesop
 
 
@@ -104,7 +104,7 @@ open PrimeSieve
 
 theorem c_gt_p (α : Type) [SieveState α] [PrimeSieve α] (g:α) : C g > P g := by
   have := PrimeSieve.hCinR g
-  exact r_gt_p α g (C g) this
+  exact r_gt_p (↑(P g)) (C g) this
 
 theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
   : ¬ ∃ q:Nat, Nat.Prime q ∧ P g < q ∧ q < C g := by
