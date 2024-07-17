@@ -15,7 +15,7 @@ structure RakeSieve where
 def RakeSieve.init : RakeSieve :=
   let rm := idrm.gte 2 |>.rem 2
   let p := ⟨2, Nat.prime_two⟩
-  { prop := rm.pred, rm := rm, p := p, c := 3
+  { prop := rm.pred, rm := rm, p := p, c := 3,
     hprop := by
       have hrm : rm.pred = λn => n ≥ 2 ∧ ¬ 2∣n := by simp[RakeMap.pred]
       show ∀ n, rm.pred n ↔ n ∈ R p
@@ -83,13 +83,13 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
         exact hprop.mp this
     hRmin := sorry }
 
-instance : SieveState RakeSieve where
+instance : PrimeSieveState RakeSieve where
   P x := x.p
   C x := x.c
   next x hC := RakeSieve.next x hC
-  hNext := by aesop
-open SieveState
+  hNext := sorry
+open PrimeSieveState
 
-instance : PrimeSieve RakeSieve where
+instance : PrimeSieveDriver RakeSieve where
   hCinR x := by dsimp[C]; dsimp[P]; exact x.hCinR
   hRmin x := by dsimp[C]; dsimp[P]; exact x.hRmin

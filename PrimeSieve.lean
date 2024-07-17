@@ -3,12 +3,12 @@ import PrimeGen
 set_option autoImplicit false
 
 abbrev nosk' P C := (¬∃ q:Nat, Nat.Prime q ∧ P < q ∧ q < C) -- no skipped prime
-class SieveState (α : Type) where
+class PrimeSieveState (α : Type) where
   P     (s:α) : NPrime
   C     (s:α) : Nat
   next  (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)): α
-  hNext (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)): (P (next s hC hN) = C s)
-open SieveState
+  hNext (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)) {s':α}: (s'=(next s hC hN) → P s' = C s' ∧ C s' > C s)
+open PrimeSieveState
 
 -- R: the "residue", or "remaining" nats coprime to all primes < p.
 -- In a sieve, these are the numbers that haven't yet been "sifted out."
@@ -92,26 +92,27 @@ theorem r_next_prop {p₀ n:Nat} {h₀ h₁: Nat → Prop} {m : MinPrimeGt p₀}
   exact r_next p₀ m
 
 /--
+PrimeSieveDriver provides the generic proof that a
 A PrimeSieve is a PrimeGen that uses a SieveState to generate primes.
 In practice, this means that it somehow models the set of natural
 numbers greater than 1 that are coprime to a list of known primes,
 and then repeatedly:
   - obtains the minimum of this set as the next prime
   - eliminates multiples of the new prime. -/
-class PrimeSieve (α : Type) [SieveState α] where
+class PrimeSieveDriver (α : Type) [PrimeSieveState α] where
   hCinR  (g:α) : C g ∈ R (P g)            -- C is an element of R
   hRmin  (g:α) : ∀ n ∈ R (P g), C g ≤ n   -- C is min of R
-open PrimeSieve
+open PrimeSieveDriver
 
-theorem c_gt_p (α : Type) [SieveState α] [PrimeSieve α] (g:α) : C g > P g := by
-  have := PrimeSieve.hCinR g
+theorem c_gt_p (α : Type) [PrimeSieveState α] [PrimeSieveDriver α] (g:α) : C g > P g := by
+  have := hCinR g
   exact r_gt_p (↑(P g)) (C g) this
 
-theorem no_skipped_prime (α : Type) [SieveState α] [PrimeSieve α] (g:α)
+theorem no_skipped_prime (α : Type) [PrimeSieveState α] [PrimeSieveDriver α] (g:α)
   : ¬ ∃ q:Nat, Nat.Prime q ∧ P g < q ∧ q < C g := by
     intro ⟨q, ⟨hQ', hPltQ, hQltC⟩⟩ -- `intro q` on a ¬∃ goal requires we find a contradiction.
     -- hRmin tells us that that C is the min of the set R.
-    have hRmin: ∀n ∈ R (P g), C g ≤ n := PrimeSieve.hRmin <| g
+    have hRmin: ∀n ∈ R (P g), C g ≤ n := hRmin <| g
 
     -- demonstrating `q ∈ R` would show the contradiction since `q<P` and `P` is min of `R`
     suffices hQinR: q ∈ R (P g) from by apply hRmin at hQinR; omega
@@ -147,7 +148,7 @@ lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩
 
 
-theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
+theorem c_prime (α: Type) [PrimeSieveState α] [PrimeSieveDriver α] (g:α)
   : Nat.Prime (C g) := by
     set c := C g
     have hfac: ∀ q < C g, Nat.Prime q → ¬ q ∣ c := by
@@ -155,7 +156,7 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
       set q : NPrime := ⟨q₀,hPq⟩
       by_cases hq: q ≤ (P g)
       case pos => -- ¬p∣C because C∈R and that's how R is defined
-        have hCinR := PrimeSieve.hCinR g
+        have hCinR := hCinR g
         unfold R at hCinR; simp at hCinR
         aesop
       case neg => -- we have P < q and q < C but this can't happen
@@ -172,9 +173,21 @@ theorem c_prime (α: Type) [SieveState α] [PrimeSieve α] (g:α)
 
 -- demonstrate that a sieve generates the next consecutive prime at each step.
 -- "we have a new, bigger prime, and there is no prime between them".
-theorem hs_suffice (α : Type) [SieveState α] [PrimeSieve α] (g:α)
+theorem hs_suffice (α : Type) [PrimeSieveState α] [PrimeSieveDriver α] (g:α)
   :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q, Nat.Prime q ∧ P g < q ∧  q < C g) := by
     split_ands
     · exact c_prime α g
     . exact c_gt_p α g
     · exact no_skipped_prime α g
+
+def nextState {α : Type} [PrimeSieveState α] [PrimeSieveDriver α] (s: α) : α :=
+  let c' := c_prime α s
+  let ns := no_skipped_prime α s
+  PrimeSieveState.next s c' ns
+
+variable (α : Type) [PrimeSieveState α] [PrimeSieveDriver α]
+structure PrimeSieve  where
+  state  : α
+
+def PrimeSieve.next (x:PrimeSieve α) : PrimeSieve α :=
+  { state := nextState x.state }
