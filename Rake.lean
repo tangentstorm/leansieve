@@ -62,7 +62,12 @@ def Rake.gte (r : Rake) (n : Nat) : Rake := {
   hsort := by apply List.sorted_mergeSort
   hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
 
-def Rake.partition (r : Rake) (n: Nat) {hn: 0 < n} : Rake :=
+/--
+Partition each sequence in the rake by partitioning their *inputs*
+into equivalance classes mod n. This multiplies the number of sequences
+by n. We can't allow n to be zero because then we'd have no sequences left,
+and this would break the guarantee that term (n) < term n+1. -/
+def Rake.partition (r : Rake) (n: Nat) (hn: 0 < n) : Rake :=
   let seqs' := r.seqs.map (λ s=> s.partition n) |>.join
   have not_empty : seqs'.length > 0 := by
     simp[seqs']; conv =>
@@ -74,11 +79,15 @@ def Rake.partition (r : Rake) (n: Nat) {hn: 0 < n} : Rake :=
     hsort := by apply List.sorted_mergeSort,
     hsize := by simp[List.length_mergeSort]; exact not_empty }
 
-def Rake.rem (r : Rake) (n : Nat) : Rake := {
-  d := r.d
-  seqs := r.seqs |> List.mergeSort (·≤·)
-  hsort := by apply List.sorted_mergeSort,
-  hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
+def Rake.rem (r : Rake) (n : Nat) : Rake :=
+  -- first make sure r and n are coprime.
+  let gcd := r.d.gcd n
+  have hz : 0 < (n/gcd) := sorry
+  let r' := if n∣r.d then r else r.partition (n/gcd) hz
+  { d := r'.d
+    seqs := r'.seqs |>.filter (λ s => ¬n∣s.val.k)  |>.mergeSort (·≤·)
+    hsort := by apply List.sorted_mergeSort
+    hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
 
 /-- proof that if a rake produces a term, it's because one of the sequences
     it contains produces that term. -/
