@@ -83,11 +83,23 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
         exact hprop.mp this
     hRmin := sorry }
 
+open RakeSieve
+
 instance : PrimeSieveState RakeSieve where
   P x := x.p
   C x := x.c
-  next x hC := RakeSieve.next x hC
-  hNext := sorry
+  next := .next
+  hNext := by
+    intro s hC hNS s' hs'; simp_all; rw[←hs']
+    unfold next at hs'; simp at hs'
+    have hpc: s'.p = s.c := by simp_all
+    apply And.intro
+    · exact hpc
+    · show s'.c > s.c
+      have := s'.hCinR
+      have := r_gt_p
+      aesop
+
 open PrimeSieveState
 
 instance : PrimeSieveDriver RakeSieve where

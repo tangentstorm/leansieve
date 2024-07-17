@@ -7,7 +7,8 @@ class PrimeSieveState (α : Type) where
   P     (s:α) : NPrime
   C     (s:α) : Nat
   next  (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)): α
-  hNext (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)) {s':α}: (s'=(next s hC hN) → P s' = C s' ∧ C s' > C s)
+  hNext (s:α) (hC: Nat.Prime (C s)) (hN: nosk' (P s) (C s)) {s':α}
+    : (s'=(next s hC hN) → P s' = C s ∧ C s' > C s)
 open PrimeSieveState
 
 -- R: the "residue", or "remaining" nats coprime to all primes < p.
