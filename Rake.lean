@@ -38,29 +38,31 @@ def DSeq.partition {d₀:Nat} (ds : DSeq d₀) (n:Nat) : List (DSeq (d₀*n)) :=
 
 structure Rake where
   d : Nat
-  seqs : List (DSeq d)
+  ks : List Nat
+  seqs : List (DSeq d) := ks.map λk => dseq k d
   hsort : List.Sorted (·≤·) seqs
   hsize : seqs.length > 0
 
 def idr : Rake := { -- the identity rake (maps n -> n)
-  d := 1,
-  seqs := [dseq 0 1],
-  hsort := List.sorted_singleton _,
-  hsize := Nat.zero_lt_one }
+  d := 1, ks := [0],
+  hsort := by simp,
+  hsize := by simp }
 
 def Rake.term (r : Rake) (n : Nat) : Nat :=
   let q := r.seqs.length
   have : n%q < r.seqs.length := Nat.mod_lt _ r.hsize
   r.seqs[n%q] (n/q)
 
-def Rake.gte (r : Rake) (n : Nat) : Rake := {
-  d := r.d
-  seqs := r.seqs.map (λ s => ⟨ASeq.gte s.val n, (by
+def Rake.gte (r : Rake) (n : Nat) : Rake :=
+  let f := (λ s => ⟨ASeq.gte s.val n, (by
     have : s.val.d = r.d := s.property
     symm at this; simp[this]
-    apply ASeq.gte_same_delta s.val n)⟩) |> List.mergeSort (·≤·)
-  hsort := by apply List.sorted_mergeSort
-  hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
+    apply ASeq.gte_same_delta s.val n)⟩)
+  let seqs : List (DSeq r.d) := r.seqs.map f |> List.mergeSort (·≤·)
+  { d := r.d,
+    ks := seqs.map λs => s.val.k,
+    hsort := List.sorted_mergeSort (·≤·) (List.map f r.seqs),
+    hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
 
 /--
 Partition each sequence in the rake by partitioning their *inputs*
@@ -75,6 +77,7 @@ def Rake.partition (r : Rake) (n: Nat) (hn: 0 < n) : Rake :=
       rhs; arg 1; rw [@Function.comp_def]; simp
     simp_all; exact r.hsize
   { d := r.d * n,
+    ks := seqs'.map λs => s.val.k,
     seqs := seqs' |>.mergeSort (·≤·),
     hsort := by apply List.sorted_mergeSort,
     hsize := by simp[List.length_mergeSort]; exact not_empty }
@@ -84,8 +87,10 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
   let gcd := r.d.gcd n
   have hz : 0 < (n/gcd) := sorry
   let r' := if n∣r.d then r else r.partition (n/gcd) hz
-  { d := r'.d
-    seqs := r'.seqs |>.filter (λ s => ¬n∣s.val.k)  |>.mergeSort (·≤·)
+  let seqs' := r'.seqs |>.filter (λ s => ¬n∣s.val.k)  |>.mergeSort (·≤·)
+  { d := r'.d,
+    ks := seqs'.map (λs=> s.val.k),
+    seqs := seqs',
     hsort := by apply List.sorted_mergeSort
     hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
 
@@ -115,8 +120,8 @@ def RakeMap.pred {p:Nat → Prop} (_:RakeMap p) : Nat → Prop := p
 /-- proof that idr.term provides a bijection from Nat → Nat
  (it happens to be an identity map, but this is not necessary for proofs) -/
 def idrm : RakeMap (λ _ => True) := {
-  rake := idr,
-  hbij := by intro n; simp[Rake.term, idr]; unfold dseq; unfold ASeq.term; simp }
+  rake := idr
+  hbij := by intro n; simp[Rake.term, idr, dseq, ASeq.term]}
 
 section gte_lemmas
 
