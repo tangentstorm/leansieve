@@ -38,19 +38,22 @@ def DSeq.partition {d₀:Nat} (ds : DSeq d₀) (n:Nat) : List (DSeq (d₀*n)) :=
 
 structure Rake where
   d : Nat
-  ks : List Nat
-  seqs : List (DSeq d) := ks.map λk => dseq k d
+  seqs : List (DSeq d)
+  ks := seqs.map λs => s.val.k
+  hmono {i j : Nat} (hij: i<j) (hj: j<ks.length) : ks[i] < ks[j]
   hsort : List.Sorted (·≤·) seqs
-  hsize : seqs.length > 0
+  hsize : ks.length > 0
+  hsize': seqs.length > 0 := sorry
 
 def idr : Rake := { -- the identity rake (maps n -> n)
-  d := 1, ks := [0],
+  d := 1, ks := [0], seqs := [dseq 0 1]
+  hmono := sorry
   hsort := by simp,
   hsize := by simp }
 
 def Rake.term (r : Rake) (n : Nat) : Nat :=
   let q := r.seqs.length
-  have : n%q < r.seqs.length := Nat.mod_lt _ r.hsize
+  have : n%q < r.seqs.length := Nat.mod_lt _ r.hsize'
   r.seqs[n%q] (n/q)
 
 def Rake.gte (r : Rake) (n : Nat) : Rake :=
@@ -58,11 +61,12 @@ def Rake.gte (r : Rake) (n : Nat) : Rake :=
     have : s.val.d = r.d := s.property
     symm at this; simp[this]
     apply ASeq.gte_same_delta s.val n)⟩)
-  let seqs : List (DSeq r.d) := r.seqs.map f |> List.mergeSort (·≤·)
-  { d := r.d,
-    ks := seqs.map λs => s.val.k,
-    hsort := List.sorted_mergeSort (·≤·) (List.map f r.seqs),
-    hsize := (by simp[List.length_mergeSort]; exact r.hsize)}
+  let seqs' := r.seqs.map f |> List.mergeSort (·≤·)
+  { d := r.d
+    seqs := seqs'
+    hmono := sorry
+    hsort := List.sorted_mergeSort (·≤·) (List.map f r.seqs)
+    hsize := sorry } -- (by simp[List.length_mergeSort]; exact r.hsize')}
 
 /--
 Partition each sequence in the rake by partitioning their *inputs*
@@ -75,11 +79,11 @@ def Rake.partition (r : Rake) (n: Nat) (hn: 0 < n) : Rake :=
     simp[seqs']; conv =>
       rhs; simp[List.length_join']
       rhs; arg 1; rw [@Function.comp_def]; simp
-    simp_all; exact r.hsize
-  { d := r.d * n,
-    ks := seqs'.map λs => s.val.k,
-    seqs := seqs' |>.mergeSort (·≤·),
-    hsort := by apply List.sorted_mergeSort,
+    simp_all; exact r.hsize'
+  { d := r.d * n
+    hmono := sorry
+    seqs := seqs' |>.mergeSort (·≤·)
+    hsort := by apply List.sorted_mergeSort
     hsize := by simp[List.length_mergeSort]; exact not_empty }
 
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
@@ -88,9 +92,10 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
   have hz : 0 < (n/gcd) := sorry
   let r' := if n∣r.d then r else r.partition (n/gcd) hz
   let seqs' := r'.seqs |>.filter (λ s => ¬n∣s.val.k)  |>.mergeSort (·≤·)
-  { d := r'.d,
-    ks := seqs'.map (λs=> s.val.k),
-    seqs := seqs',
+  { d := r'.d
+    ks := seqs'.map (λs=> s.val.k)
+    hmono := sorry
+    seqs := seqs'
     hsort := by apply List.sorted_mergeSort
     hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
 
@@ -98,9 +103,9 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
     it contains produces that term. -/
 lemma Rake.ex_seq (rake: Rake)
   : (rake.term m = n) → (∃seq ∈ rake.seqs, ∃m₁, seq m₁ = n) := by
-  unfold Rake.term; intro hseq; simp_all
+  unfold term; intro hseq; simp_all
   let q := rake.seqs.length
-  have : m%q < rake.seqs.length := Nat.mod_lt _ rake.hsize
+  have : m%q < rake.seqs.length := Nat.mod_lt _ rake.hsize'
   let seq := rake.seqs[m%q]; use seq
   apply And.intro
   · show seq ∈ rake.seqs
@@ -108,6 +113,20 @@ lemma Rake.ex_seq (rake: Rake)
   · show ∃ m₁, seq m₁ = n
     dsimp[seq,q]
     use m/rake.seqs.length
+
+
+theorem Rake.min_term_zero (r: Rake)
+  : (0 < n) → (r.term 0 < r.term n) := by
+  intro hnpos
+  have : 0 < r.seqs.length := sorry
+  unfold term ASeq.term
+  set q := r.seqs.length
+  dsimp; unfold List.get; dsimp
+  simp_all
+  set t0 := r.term 0
+  set tn := r.term n
+  sorry
+
 
 -- rakemap --------------------------------------------------------------------
 
