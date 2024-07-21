@@ -65,8 +65,7 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
   have hmin: ∀ q < x.c, ¬PrimeGt (↑x.p) q := by
     simp_all; intro q hq hq'; apply hNS at hq'; omega
   let m : MinPrimeGt x.p := { p:=x.c, hpgt:=hpgt, hmin:=hmin}
-  let p := m.p
-  let rm := x.rm.rem p
+  let rm := x.rm.rem m.p
   let c₁ := rm.rake.term 0
   have hc₁: ∃ i, rm.rake.term i = c₁ := by
     exact exists_apply_eq_apply (fun a => rm.rake.term a) 0
@@ -74,14 +73,27 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
   have hh₁ : ∀n, h₁ n ↔ h₀ n ∧ ¬(m.p∣n) := by simp[h₁, RakeMap.pred]
   have hprop : ∀n, h₁ n ↔ n ∈ R m.p := by
     intro n; exact r_next_prop (hh₀ n) (hh₁ n)
-  { prop := rm.pred, rm := rm, p := ⟨p, hC₀⟩, c := c₁,
+  { prop := rm.pred, rm := rm, p := ⟨m.p, hC₀⟩, c := c₁,
     hprop := hprop
     hCinR := by
       show c₁ ∈ R m.p
       · have : h₁ c₁ := by rw[← rm.hbij] at hc₁; exact hc₁
         specialize hprop c₁
         exact hprop.mp this
-    hRmin := sorry }
+    hRmin := by
+      dsimp[c₁,p,h₁] at *
+      intro r hr
+      have : ∃k, rm.rake.term k = r := by
+        have : x.c = m.p := by rfl
+        conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹x.c=m.p›, rm.hbij r]
+        exact hr
+      obtain ⟨k, hk⟩ := this
+      by_cases hk0: k = 0
+      · simp_all
+      · simp[le_iff_lt_or_eq]; left
+        push_neg at hk0; symm at hk0; apply Nat.lt_of_le_of_ne (Nat.zero_le k) at hk0
+        rw[←hk]
+        exact rm.rake.min_term_zero hk0 }
 
 open RakeSieve
 
