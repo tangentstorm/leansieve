@@ -1,5 +1,6 @@
 -- ASeq: Arithmetic Sequences
 import Mathlib.Tactic.Linarith
+import Batteries.Data.List.Lemmas
 
 syntax "assert" term : command
 macro_rules | `(assert $x) => `(example : $x := by decide)
@@ -62,6 +63,10 @@ theorem compose_def (s t: ASeq) {n:Nat} : (s.compose t) n = s (t n) :=
 
 def partition (s : ASeq) (n : Nat) : List ASeq :=
   List.range n |>.map fun i => compose s $ .mk i n
+
+theorem length_partition {s: ASeq} {n: Nat}
+  : (s.partition n).length = n := by
+    simp[partition, List.length_range n]
 
 instance : ToString ASeq where
   toString s :=
