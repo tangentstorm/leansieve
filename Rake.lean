@@ -6,6 +6,7 @@
 -- the multiples certain numbers removed.
 import ASeq
 import MathLib.Data.List.Sort
+import Mathlib.Data.List.Dedup
 
 def DSeq (d : Nat) := { s : ASeq // s.d = d }
 instance : Inhabited (DSeq d) := ⟨⟨ASeq.mk 0 d, rfl⟩⟩
@@ -17,6 +18,8 @@ instance : IsTotal (DSeq d) (·≤·) := by
   apply IsTotal.mk; intro a b; cases a; cases b; apply Nat.le_total
 instance : IsTrans (DSeq d) (·≤·) := by
   apply IsTrans.mk; intro a b c; cases a; cases b; cases c; apply Nat.le_trans
+
+-- instance : LT (DSeq d) where lt a b := a.val.k < b.val.k
 
 def dseq (k : Nat) (d : Nat) : DSeq d := ⟨ASeq.mk k d, rfl⟩
 
@@ -39,15 +42,18 @@ def DSeq.partition {d₀:Nat} (ds : DSeq d₀) (n:Nat) : List (DSeq (d₀*n)) :=
 structure Rake where
   d : Nat
   seqs : List (DSeq d)
+  size : Nat := seqs.length
   hsort : List.Sorted (·≤·) seqs
   hsize: seqs.length > 0
 
 structure Rake' : Type where
   d     : Nat
   ks    : List Nat
+  size : Nat := ks.length
+  hdpos : 0 < d
   hsort : List.Sorted (·<·) ks
   huniq : List.Nodup ks
-  hsize : ks.length > 0
+  hsize : 0 < ks.length
 
 def idr : Rake := { -- the identity rake (maps n -> n)
   d := 1, seqs := [dseq 0 1]
@@ -56,6 +62,7 @@ def idr : Rake := { -- the identity rake (maps n -> n)
 
 def idr' : Rake' := {
   d := 1, ks := [0],
+  hdpos := by simp
   hsort := by simp
   huniq := by simp
   hsize := by simp }
@@ -70,6 +77,7 @@ def Rake'.term (r: Rake') (n : Nat) : Nat :=
   have : n%q < r.ks.length := Nat.mod_lt _ r.hsize
   aseq r.ks[n%q] r.d |>.term (n/q)
 
+
 def Rake.gte (r : Rake) (n : Nat) : Rake :=
   let f := (λ s => ⟨ASeq.gte s.val n, (by
     have : s.val.d = r.d := s.property
@@ -82,6 +90,32 @@ def Rake.gte (r : Rake) (n : Nat) : Rake :=
     hsize := by
       have : seqs'.length = r.seqs.length := by dsimp[seqs']; simp[List.length_mergeSort]
       simp[this]; exact r.hsize}
+
+lemma length_pos_of_dedup (l:List Nat) : 0 < l.length → 0 < l.dedup.length := by
+  intro hlen
+  obtain ⟨hd, tl, hcons⟩ := List.exists_cons_of_length_pos hlen
+  have : hd ∈ l := by rw[hcons]; exact List.mem_cons_self hd tl
+  rw[←List.mem_dedup] at this
+  exact List.length_pos_of_mem this
+
+def Rake'.gte (r: Rake') (n: Nat) : Rake' :=
+  let f : ℕ → ℕ := (λk => let s := aseq k r.d; (ASeq.gte s n).k)
+  let ks₀ := r.ks.map f
+  let ks₁ := ks₀.dedup
+  let ks₂ := ks₁.mergeSort (.≤·)
+  have huniq₁ : ks₁.Nodup := ks₀.nodup_dedup
+  have huniq₂ : ks₂.Nodup := ks₁.perm_mergeSort (·≤·) |>.nodup_iff |>.mpr huniq₁
+  have : List.Sorted (·≤·) ks₂ := List.sorted_mergeSort (·≤·) ks₁
+  have hsize : 0 < ks₂.length := by
+    have h₀ : 0 < ks₀.length := Nat.lt_of_lt_of_eq r.hsize (r.ks.length_map _).symm
+    have h₁ : 0 < ks₁.length := length_pos_of_dedup ks₀ h₀
+    have h₂: ks₂.length = ks₁.length := ks₁.length_mergeSort _
+    exact Nat.lt_of_lt_of_eq h₁ h₂.symm
+  { d := r.d, ks := ks₂
+    hdpos := r.hdpos
+    huniq := huniq₂
+    hsort := List.Sorted.lt_of_le this huniq₂
+    hsize := hsize }
 
 /--
 Partition each sequence in the rake by partitioning their *inputs*
@@ -100,6 +134,9 @@ def Rake.partition (r : Rake) (n: Nat) (hn: 0 < n) : Rake :=
     hsort := by apply List.sorted_mergeSort
     hsize := by simp[List.length_mergeSort]; exact not_empty }
 
+def Rake'.partition (r: Rake') (n: Nat) (hn: 0 < n): Rake' :=
+  sorry
+
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
   -- first make sure r and n are coprime.
   let gcd := r.d.gcd n
@@ -111,9 +148,12 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
     hsort := by apply List.sorted_mergeSort
     hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
 
+def Rake'.rem (r : Rake') (n : Nat) : Rake' :=
+  sorry
+
 /-- proof that if a rake produces a term, it's because one of the sequences
     it contains produces that term. -/
-lemma Rake.ex_seq (rake: Rake)
+lemma Rake.___unused______ex_seq (rake: Rake)
   : (rake.term m = n) → (∃seq ∈ rake.seqs, ∃m₁, seq m₁ = n) := by
   unfold term; intro hseq; simp_all
   let q := rake.seqs.length
@@ -132,18 +172,45 @@ lemma Rake.ex_seq (rake: Rake)
 ---  have : i < xs.length := Nat.lt_trans hij hjl
 ---  xs[i] < xs[j]
 
-theorem Rake.min_term_zero (r: Rake)
-  : (0 < n) → (r.term 0 < r.term n) := by
-  intro hnpos
-  have : 0 < r.seqs.length := sorry
-  unfold term ASeq.term
-  set q := r.seqs.length
-  dsimp; unfold List.get; dsimp
-  simp_all
-  set t0 := r.term 0
-  set tn := r.term n
-  sorry
+theorem div_lt_of_lt_mod_eq {m n d:Nat} {hdpos: 0 < d} {hmn: m<n} : (m%d = n%d) → (m/d < n/d) := by
+  intro hmod
+  rw[←m.div_add_mod d, ←n.div_add_mod d, hmod, Nat.add_lt_add_iff_right] at hmn
+  exact (Nat.mul_lt_mul_left hdpos).mp hmn
 
+theorem Rake'.ascending_terms (r:Rake') {m n : Nat} (hmn: m < n)
+ : r.term m < r.term n := by
+
+  unfold term aseq ASeq.term; simp
+  set kl := r.ks.length
+  set mq := m / kl
+  set mr := m % kl
+  set nq := n / kl
+  set nr := n % kl
+  have hmr : mr < kl := by dsimp[mr,kl]; exact Nat.mod_lt m r.hsize
+  have hnr : nr < kl := by dsimp[nr,kl]; exact Nat.mod_lt n r.hsize
+  show r.ks[mr]'hmr + r.d * mq < r.ks[nr]'hnr + r.d * nq
+  by_cases hreq : mr = nr
+  case pos =>
+    -- two terms of the same sequence
+    have : r.ks[mr]'hmr = r.ks[nr]'hnr := by simp_all
+    simp[this, Nat.mul_lt_mul_left r.hdpos]
+    dsimp[mq, nq]
+    have hklpos: 0 < kl := r.hsize
+    dsimp[mr,nr] at hreq
+    exact @div_lt_of_lt_mod_eq m n kl hklpos hmn hreq
+  case neg =>
+    have : mq < nq := by dsimp[mq,nq]; sorry  -- because m < n and mr < nr
+    have : ∃k, mq + k = nq := by sorry -- because that's what < means
+    obtain ⟨k,ksum⟩ := this
+    rw[←ksum]
+    conv => rhs; rhs; simp[Nat.mul_add, Nat.add_comm]
+    conv => rhs; rw[←Nat.add_assoc]
+    rw[add_lt_add_iff_right]
+    have : r.ks[mr] < r.ks[nr] := by sorry -- consequence of r.hsort
+    exact Nat.lt_add_right (r.d * k) this
+
+theorem Rake'.min_term_zero (r: Rake')
+  : (0 < n) → (r.term 0 < r.term n) := r.ascending_terms
 
 -- rakemap --------------------------------------------------------------------
 
