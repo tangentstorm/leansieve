@@ -19,8 +19,6 @@ instance : IsTotal (DSeq d) (·≤·) := by
 instance : IsTrans (DSeq d) (·≤·) := by
   apply IsTrans.mk; intro a b c; cases a; cases b; cases c; apply Nat.le_trans
 
--- instance : LT (DSeq d) where lt a b := a.val.k < b.val.k
-
 def dseq (k : Nat) (d : Nat) : DSeq d := ⟨ASeq.mk k d, rfl⟩
 
 def DSeq.compose {d₀ d₁ : Nat} (s₀ : DSeq d₀) (s₁ : DSeq d₁) : DSeq (d₀*d₁) :=
@@ -52,8 +50,10 @@ structure Rake' : Type where
   size : Nat := ks.length
   hdpos : 0 < d
   hsort : List.Sorted (·<·) ks
-  huniq : List.Nodup ks
   hsize : 0 < ks.length
+
+theorem Rake'.nodup {r:Rake'} : List.Nodup r.ks :=
+  List.Sorted.nodup r.hsort
 
 def idr : Rake := { -- the identity rake (maps n -> n)
   d := 1, seqs := [dseq 0 1]
@@ -64,7 +64,6 @@ def idr' : Rake' := {
   d := 1, ks := [0],
   hdpos := by simp
   hsort := by simp
-  huniq := by simp
   hsize := by simp }
 
 def Rake.term (r : Rake) (n : Nat) : Nat :=
@@ -113,7 +112,6 @@ def Rake'.gte (r: Rake') (n: Nat) : Rake' :=
     exact Nat.lt_of_lt_of_eq h₁ h₂.symm
   { d := r.d, ks := ks₂
     hdpos := r.hdpos
-    huniq := huniq₂
     hsort := List.Sorted.lt_of_le this huniq₂
     hsize := hsize }
 
@@ -134,8 +132,24 @@ def Rake.partition (r : Rake) (n: Nat) (hn: 0 < n) : Rake :=
     hsort := by apply List.sorted_mergeSort
     hsize := by simp[List.length_mergeSort]; exact not_empty }
 
+def Rake'.seqs (r: Rake') : List ASeq :=
+  r.ks.map (λ k => aseq k r.d)
+
 def Rake'.partition (r: Rake') (n: Nat) (hn: 0 < n): Rake' :=
-  sorry
+  let seqs' := r.seqs.map (λ s => s.partition n) |>.join
+  have not_empty : seqs'.length > 0 := by
+    unfold_let; rw[List.length_join']; simp
+    have : (List.length ∘ λs:ASeq=> s.partition n) = λs => n := by
+      calc (List.length ∘ λ s => s.partition n)
+        _ = λs:ASeq => (s.partition n).length := by rfl
+        _ = λs:ASeq => n := by conv=> lhs; simp[ASeq.length_partition]
+    have : 0 < r.seqs.length := by unfold seqs; simp[List.length_map, r.hsize]
+    simp_all
+  let ks' := seqs'.map (λ s => s.k) |>.mergeSort (·≤.)
+  { d := r.d * n, ks := ks'
+    hsort := sorry
+    hdpos := sorry
+    hsize := sorry}
 
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
   -- first make sure r and n are coprime.
