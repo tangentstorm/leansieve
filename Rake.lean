@@ -7,6 +7,7 @@
 import ASeq
 import MathLib.Data.List.Sort
 import Mathlib.Data.List.Dedup
+import Mathlib.Data.List.Basic
 
 def DSeq (d : Nat) := { s : ASeq // s.d = d }
 instance : Inhabited (DSeq d) := ⟨⟨ASeq.mk 0 d, rfl⟩⟩
@@ -132,6 +133,10 @@ def Rake.partition (r : Rake) (n: Nat) (hn: 0 < n) : Rake :=
     hsort := by apply List.sorted_mergeSort
     hsize := by simp[List.length_mergeSort]; exact not_empty }
 
+
+def Rake'.seq (r:Rake') (n:Nat) {hn:n<r.ks.length} : ASeq :=
+  aseq (r.ks[n]'hn) r.d
+
 def Rake'.seqs (r: Rake') : List ASeq :=
   r.ks.map (λ k => aseq k r.d)
 
@@ -162,24 +167,41 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
     hsort := by apply List.sorted_mergeSort
     hsize := sorry} -- (by simp[List.length_mergeSort]; exact r.hsize)}
 
-def Rake'.rem (r : Rake') (n : Nat) : Rake' :=
-  sorry
+def Rake'.rem (r : Rake') (n : Nat) {hn:0<n} {hkex:∃k∈r.ks,¬n∣k}: Rake' :=
+  let gcd := r.d.gcd n
+  have hz : 0 < (n/gcd) := Nat.div_gcd_pos_of_pos_right r.d hn
+  let r' := if n∣r.d then r else r.partition (n/gcd) hz
+  let p := (λk => ¬n∣k)
+  let ks₁ := r'.ks |>.filter p
+  let ks₂ := ks₁.mergeSort (·<·)
+  have hsize: 0 < ks₁.length := by
+    obtain ⟨k, hk⟩ := hkex
+    have : k ∈ ks₁ := by
+      have h₁ : k ∈ r'.ks := by sorry -- partition preserves and multiplies constants
+      have h₂: (decide (p k) = true) := by aesop
+      exact List.mem_filter_of_mem h₁ h₂
+    exact List.length_pos_of_mem this
+  { d := r'.d, ks:=ks₂
+    hsort := by sorry -- because of mergeSort, but we need a trick
+    hdpos := by simp[r'.hdpos]
+    hsize := by aesop }
 
 /-- proof that if a rake produces a term, it's because one of the sequences
     it contains produces that term. -/
-lemma Rake.___unused______ex_seq (rake: Rake)
-  : (rake.term m = n) → (∃seq ∈ rake.seqs, ∃m₁, seq m₁ = n) := by
-  unfold term; intro hseq; simp_all
-  let q := rake.seqs.length
-  have : m%q < rake.seqs.length := Nat.mod_lt _ rake.hsize
-  let seq := rake.seqs[m%q]; use seq
+lemma Rake'.___unused______ex_seq (r: Rake')
+  : (r.term m = n) → (∃k ∈ r.ks, n = k + r.d * (m/r.ks.length)) := by
+  unfold term; intro hmn; simp_all
+  let q := r.ks.length
+  have hmq: m%q < r.ks.length := Nat.mod_lt _ r.hsize
+  let k := r.ks[m%q]; use k
   apply And.intro
-  · show seq ∈ rake.seqs
-    exact List.get_mem rake.seqs (m % q) this
-  · show ∃ m₁, seq m₁ = n
-    dsimp[seq,q]
-    use m/rake.seqs.length
-
+  · show k ∈ r.ks
+    exact List.get_mem r.ks (m % q) hmq
+  · show n = k + r.d * (m/q)
+    calc
+      n = (aseq r.ks[m%q] r.d).term (m/q) := by simp[hmn]
+      _ = (aseq k r.d).term (m/q) := by rfl
+      _ = k + r.d * (m/q) := by unfold aseq ASeq.term; simp_all
 
 -- #print List.Sorted
 -- theorem Rake.terms (r:Rake)
