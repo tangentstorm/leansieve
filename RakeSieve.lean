@@ -88,12 +88,8 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
         conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹x.c=m.p›, rm.hbij r]
         exact hr
       obtain ⟨k, hk⟩ := this
-      by_cases hk0: k = 0
-      · simp_all
-      · simp[le_iff_lt_or_eq]; left
-        push_neg at hk0; symm at hk0; apply Nat.lt_of_le_of_ne (Nat.zero_le k) at hk0
-        rw[←hk]
-        exact rm.rake.min_term_zero hk0 }
+      rw[←hk]
+      exact Rake.min_term_zero rm.rake k}
 
 open RakeSieve
 
