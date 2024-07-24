@@ -49,7 +49,6 @@ structure Rake' : Type where
   d     : Nat
   ks    : List Nat
   size : Nat := ks.length
-  hdpos : 0 < d
   hsort : List.Sorted (·<·) ks
   hsize : 0 < ks.length
 
@@ -63,7 +62,6 @@ def idr : Rake := { -- the identity rake (maps n -> n)
 
 def idr' : Rake' := {
   d := 1, ks := [0],
-  hdpos := by simp
   hsort := by simp
   hsize := by simp }
 
@@ -112,7 +110,6 @@ def Rake'.gte (r: Rake') (n: Nat) : Rake' :=
     have h₂: ks₂.length = ks₁.length := ks₁.length_mergeSort _
     exact Nat.lt_of_lt_of_eq h₁ h₂.symm
   { d := r.d, ks := ks₂
-    hdpos := r.hdpos
     hsort := List.Sorted.lt_of_le this huniq₂
     hsize := hsize }
 
@@ -153,7 +150,6 @@ def Rake'.partition (r: Rake') (n: Nat) (hn: 0 < n): Rake' :=
   let ks' := seqs'.map (λ s => s.k) |>.mergeSort (·≤.)
   { d := r.d * n, ks := ks'
     hsort := sorry
-    hdpos := sorry
     hsize := sorry}
 
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
@@ -183,7 +179,6 @@ def Rake'.rem (r : Rake') (n : Nat) {hn:0<n} {hkex:∃k∈r.ks,¬n∣k}: Rake' :
     exact List.length_pos_of_mem this
   { d := r'.d, ks:=ks₂
     hsort := by sorry -- because of mergeSort, but we need a trick
-    hdpos := by simp[r'.hdpos]
     hsize := by aesop }
 
 /-- proof that if a rake produces a term, it's because one of the sequences
@@ -213,7 +208,7 @@ theorem div_lt_of_lt_mod_eq {m n d:Nat} {hdpos: 0 < d} {hmn: m<n} : (m%d = n%d) 
   rw[←m.div_add_mod d, ←n.div_add_mod d, hmod, Nat.add_lt_add_iff_right] at hmn
   exact (Nat.mul_lt_mul_left hdpos).mp hmn
 
-theorem Rake'.ascending_terms (r:Rake') {m n : Nat} (hmn: m < n)
+theorem Rake'.ascending_terms (r:Rake') (hdpos: 0 < r.d) {m n : Nat} (hmn: m < n)
  : r.term m < r.term n := by
 
   unfold term aseq ASeq.term; simp
@@ -229,7 +224,7 @@ theorem Rake'.ascending_terms (r:Rake') {m n : Nat} (hmn: m < n)
   case pos =>
     -- two terms of the same sequence
     have : r.ks[mr]'hmr = r.ks[nr]'hnr := by simp_all
-    simp[this, Nat.mul_lt_mul_left r.hdpos]
+    simp[this, Nat.mul_lt_mul_left hdpos]
     dsimp[mq, nq]
     have hklpos: 0 < kl := r.hsize
     dsimp[mr,nr] at hreq
@@ -245,8 +240,8 @@ theorem Rake'.ascending_terms (r:Rake') {m n : Nat} (hmn: m < n)
     have : r.ks[mr] < r.ks[nr] := by sorry -- consequence of r.hsort
     exact Nat.lt_add_right (r.d * k) this
 
-theorem Rake'.min_term_zero (r: Rake')
-  : (0 < n) → (r.term 0 < r.term n) := r.ascending_terms
+theorem Rake'.min_term_zero (r: Rake') {hdpos: 0 < r.d}
+  : (0 < n) → (r.term 0 < r.term n) := r.ascending_terms hdpos
 
 -- rakemap --------------------------------------------------------------------
 
