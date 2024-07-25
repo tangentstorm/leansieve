@@ -19,6 +19,14 @@ structure Rake : Type where
 theorem Rake.nodup {r:Rake} : List.Nodup r.ks :=
   List.Sorted.nodup r.hsort
 
+def sort_nodup (xs:List Nat) (hxs₀ : List.Nodup xs)
+: { xs':List Nat // List.Sorted (·<·) xs' ∧ xs'.length = xs.length } :=
+  let xs' := xs.mergeSort (·≤·)
+  have hnodup : xs'.Nodup := xs.perm_mergeSort (·≤·) |>.nodup_iff |>.mpr hxs₀
+  have hsorted: List.Sorted (·≤·) xs' := List.sorted_mergeSort (·≤·) xs
+  have hlength := by simp_all only [List.length_mergeSort, xs']
+  ⟨xs', And.intro (List.Sorted.lt_of_le hsorted hnodup) hlength⟩
+
 def idr : Rake := {
   d := 1, ks := [0],
   hsort := by simp
@@ -45,17 +53,14 @@ def Rake.gte (r: Rake) (n: Nat) : Rake :=
   let f : ℕ → ℕ := (λk => let s := aseq k r.d; (ASeq.gte s n).k)
   let ks₀ := r.ks.map f
   let ks₁ := ks₀.dedup
-  let ks₂ := ks₁.mergeSort (.≤·)
-  have huniq₁ : ks₁.Nodup := ks₀.nodup_dedup
-  have huniq₂ : ks₂.Nodup := ks₁.perm_mergeSort (·≤·) |>.nodup_iff |>.mpr huniq₁
-  have : List.Sorted (·≤·) ks₂ := List.sorted_mergeSort (·≤·) ks₁
-  have hsize : 0 < ks₂.length := by
+  let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
+  have hsize : 0 < ks₂.val.length := by
     have h₀ : 0 < ks₀.length := Nat.lt_of_lt_of_eq r.hsize (r.ks.length_map _).symm
     have h₁ : 0 < ks₁.length := length_pos_of_dedup ks₀ h₀
-    have h₂: ks₂.length = ks₁.length := ks₁.length_mergeSort _
+    have h₂: ks₂.val.length = ks₁.length := ks₁.length_mergeSort _
     exact Nat.lt_of_lt_of_eq h₁ h₂.symm
   { d := r.d, ks := ks₂
-    hsort := List.Sorted.lt_of_le this huniq₂
+    hsort := ks₂.prop.left
     hsize := hsize }
 
 
@@ -84,9 +89,11 @@ def Rake.partition (r: Rake) (n: Nat) (hn: 0 < n): Rake :=
         _ = λs:ASeq => n := by conv=> lhs; simp[ASeq.length_partition]
     have : 0 < r.seqs.length := by unfold seqs; simp[List.length_map, r.hsize]
     simp_all
-  let ks' := seqs'.map (λ s => s.k) |>.mergeSort (·≤.)
-  { d := r.d * n, ks := ks'
-    hsort := sorry
+  let ks₀ := seqs'.map (λ s => s.k)
+  let ks₁ := ks₀.dedup
+  let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
+  { d := r.d * n, ks := ks₂
+    hsort := ks₂.prop.left
     hsize := sorry}
 
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
@@ -97,13 +104,13 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
     have hz : 0 < (n/gcd) := Nat.div_gcd_pos_of_pos_right r.d hn
     let r' := if n∣r.d then r else r.partition (n/gcd) hz
     let p := (λk => ¬n∣k)
-    let ks₁ := r'.ks |>.filter p
-    if hsize: ks₁.length = 0 then rake0
-    else
-      let ks₂ := ks₁.mergeSort (·<·)
+    let ks₀ := r'.ks |>.filter p
+    let ks₁ := ks₀.dedup
+    if hlen₁: ks₁.length = 0 then rake0
+    else let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
       { d := r'.d, ks:=ks₂
-        hsort := by sorry -- because of mergeSort, but we need a trick
-        hsize := by have := Nat.zero_lt_of_ne_zero hsize; aesop }
+        hsort := ks₂.prop.left
+        hsize := Nat.lt_of_lt_of_eq (Nat.zero_lt_of_ne_zero hlen₁) ks₂.prop.right.symm }
 
 /-- proof that if a rake produces a term, it's because one of the sequences
     it contains produces that term. -/
@@ -121,11 +128,6 @@ lemma Rake.___unused______ex_seq (r: Rake)
       n = (aseq r.ks[m%q] r.d).term (m/q) := by simp[hmn]
       _ = (aseq k r.d).term (m/q) := by rfl
       _ = k + r.d * (m/q) := by unfold aseq ASeq.term; simp_all
-
--- #print List.Sorted
--- theorem Rake.terms (r:Rake)
----  have : i < xs.length := Nat.lt_trans hij hjl
----  xs[i] < xs[j]
 
 theorem div_lt_of_lt_mod_eq {m n d:Nat} {hdpos: 0 < d} {hmn: m<n} : (m%d = n%d) → (m/d < n/d) := by
   intro hmod
@@ -153,8 +155,12 @@ theorem Rake.ascending_terms (r:Rake) (hdpos: 0 < r.d) {m n : Nat} (hmn: m < n)
     dsimp[mr,nr] at hreq
     exact @div_lt_of_lt_mod_eq m n kl hklpos hmn hreq
   case neg =>
-    have : mq < nq := by dsimp[mq,nq]; sorry  -- because m < n and mr < nr
-    have : ∃k, mq + k = nq := by sorry -- because that's what < means
+    -- mr≠nr means two different sequences.
+    -- if mq = nq, we're just adding different coefficients
+    -- if mq < nq, the sequences differ by at least a multiple of d
+    -- !! does it matter that ks[i] can be > d ?
+    have : mq ≤ nq := by dsimp[mq,nq];  sorry
+    have : ∃k, mq + k = nq := by use nq-mq; omega
     obtain ⟨k,ksum⟩ := this
     rw[←ksum]
     conv => rhs; rhs; simp[Nat.mul_add, Nat.add_comm]
@@ -162,6 +168,11 @@ theorem Rake.ascending_terms (r:Rake) (hdpos: 0 < r.d) {m n : Nat} (hmn: m < n)
     rw[add_lt_add_iff_right]
     have : r.ks[mr] < r.ks[nr] := by sorry -- consequence of r.hsort
     exact Nat.lt_add_right (r.d * k) this
+
+-- counterexample:
+def r10 : Rake := { d:=10, ks:=[1,21], hsort:=by simp, hsize:=by simp }
+#eval List.range 10 |>.map r10.term
+
 
 theorem Rake.min_term_zero (r: Rake)
   : ∀ n, (r.term 0 ≤ r.term n) := by
