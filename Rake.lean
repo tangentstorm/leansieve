@@ -42,8 +42,7 @@ def Rake.term (r: Rake) (n : Nat) : Nat :=
   have : n%q < r.ks.length := Nat.mod_lt _ r.hsize
   aseq r.ks[n%q] r.d |>.term (n/q)
 
-lemma length_pos_of_dedup (l:List Nat) : 0 < l.length → 0 < l.dedup.length := by
-  intro hlen
+lemma length_pos_of_dedup {l:List Nat} (hlen: 0 < l.length) : 0 < l.dedup.length := by
   obtain ⟨hd, tl, hcons⟩ := List.exists_cons_of_length_pos hlen
   have : hd ∈ l := by rw[hcons]; exact List.mem_cons_self hd tl
   rw[←List.mem_dedup] at this
@@ -56,7 +55,7 @@ def Rake.gte (r: Rake) (n: Nat) : Rake :=
   let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
   have hsize : 0 < ks₂.val.length := by
     have h₀ : 0 < ks₀.length := Nat.lt_of_lt_of_eq r.hsize (r.ks.length_map _).symm
-    have h₁ : 0 < ks₁.length := length_pos_of_dedup ks₀ h₀
+    have h₁ : 0 < ks₁.length := length_pos_of_dedup h₀
     have h₂: ks₂.val.length = ks₁.length := ks₁.length_mergeSort _
     exact Nat.lt_of_lt_of_eq h₁ h₂.symm
   { d := r.d, ks := ks₂
@@ -70,10 +69,6 @@ def Rake.seq (r:Rake) (n:Nat) {hn:n<r.ks.length} : ASeq :=
 def Rake.seqs (r: Rake) : List ASeq :=
   r.ks.map (λ k => aseq k r.d)
 
--- the simp_all in Rake.partition accidentally depends on the following lemma:
-@[simp] lemma sum_rep {x y: Nat} : Nat.sum (List.replicate x y) = x*y := by
-  induction x; simp_all; case succ hx => simp[hx]; linarith
-
 /--
 Partition each sequence in the rake by partitioning their *inputs*
 into equivalance classes mod n. This multiplies the number of sequences
@@ -81,20 +76,32 @@ by n. We can't allow n to be zero because then we'd have no sequences left,
 and this would break the guarantee that term (n) < term n+1. -/
 def Rake.partition (r: Rake) (n: Nat) (hn: 0 < n): Rake :=
   let seqs' := r.seqs.map (λ s => s.partition n) |>.join
-  have not_empty : seqs'.length > 0 := by
-    unfold_let; rw[List.length_join']; simp
-    have : (List.length ∘ λs:ASeq=> s.partition n) = λs => n := by
-      calc (List.length ∘ λ s => s.partition n)
-        _ = λs:ASeq => (s.partition n).length := by rfl
-        _ = λs:ASeq => n := by conv=> lhs; simp[ASeq.length_partition]
-    have : 0 < r.seqs.length := by unfold seqs; simp[List.length_map, r.hsize]
-    simp_all
   let ks₀ := seqs'.map (λ s => s.k)
   let ks₁ := ks₀.dedup
   let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
+  have hsize : 0 < ks₂.val.length := by
+    -- aseq.partiton n  always produces a list of length n
+    have hlen₀: 0 < seqs'.length := by
+      unfold_let; rw[List.length_join']; simp
+      have : (List.length ∘ λs:ASeq=> s.partition n) = λ_ => n := by
+        calc (List.length ∘ λ s => s.partition n)
+          _ = λs:ASeq => (s.partition n).length := by rfl
+          _ = λ_:ASeq => n := by conv=> lhs; simp[ASeq.length_partition]
+      have : 0 < r.seqs.length := by unfold seqs; simp[List.length_map, r.hsize]
+      simp_all -- this introduces "replicate" because the lengths are all the same.
+      show 0 < Nat.sum (List.replicate r.seqs.length n)
+      have sum_rep {x y: Nat} : Nat.sum (List.replicate x y) = x*y := by
+        induction x; simp_all; case succ hx => simp[hx]; linarith
+      simp_all
+    -- dedup of a non-empty list produces a non-empty list
+    have hlen₁: 0 < ks₁.length := by
+      have : ks₀.length = seqs'.length := List.length_map seqs' _
+      exact length_pos_of_dedup (Nat.lt_of_lt_of_eq hlen₀ this.symm)
+    have : ks₁.length = ks₂.val.length := ks₂.prop.right.symm
+    exact Nat.lt_of_lt_of_eq hlen₁ this
   { d := r.d * n, ks := ks₂
     hsort := ks₂.prop.left
-    hsize := sorry}
+    hsize := hsize }
 
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
   if hn₀ : n = 0 then r.gte 1
