@@ -141,14 +141,16 @@ theorem div_lt_of_lt_mod_eq {m n d:Nat} {hdpos: 0 < d} {hmn: m<n} : (m%d = n%d) 
   rw[←m.div_add_mod d, ←n.div_add_mod d, hmod, Nat.add_lt_add_iff_right] at hmn
   exact (Nat.mul_lt_mul_left hdpos).mp hmn
 
-theorem Rake.ascending_terms (r:Rake) (hdpos: 0 < r.d) {m n : Nat} (hmn: m < n)
+-- Example of a rake that is non-ascending.
+def r10 : Rake := { d:=10, ks:=[1,21], hsort:=by simp, hsize:=by simp }
+assert (List.range 4 |>.map r10.term) = [1, 21, 11, 31]
+
+theorem Rake.ascending_terms (r:Rake) (hks: ∀k∈ r.ks, k<r.d) (hdpos: 0 < r.d) {m n : Nat} (hmn: m < n)
  : r.term m < r.term n := by
   unfold term aseq ASeq.term; simp
   set kl := r.ks.length
-  set mq := m / kl
-  set mr := m % kl
-  set nq := n / kl
-  set nr := n % kl
+  set mq := m / kl; set mr := m % kl
+  set nq := n / kl; set nr := n % kl
   have hmr : mr < kl := by dsimp[mr,kl]; exact Nat.mod_lt m r.hsize
   have hnr : nr < kl := by dsimp[nr,kl]; exact Nat.mod_lt n r.hsize
   show r.ks[mr]'hmr + r.d * mq < r.ks[nr]'hnr + r.d * nq
@@ -176,23 +178,44 @@ theorem Rake.ascending_terms (r:Rake) (hdpos: 0 < r.d) {m n : Nat} (hmn: m < n)
     have : r.ks[mr] < r.ks[nr] := by sorry -- consequence of r.hsort
     exact Nat.lt_add_right (r.d * k) this
 
--- counterexample:
-def r10 : Rake := { d:=10, ks:=[1,21], hsort:=by simp, hsize:=by simp }
-#eval List.range 10 |>.map r10.term
+lemma Rake.term_simp (r:Rake) (n:Nat)
+: (∃k, (r.term n = k + r.d * (n/r.ks.length)) ∧ ∃i: Fin r.ks.length, i=n%r.ks.length ∧ k=r.ks[i]) := by
+  let i: Fin r.ks.length := ⟨n%r.ks.length, Nat.mod_lt n r.hsize⟩
+  use r.ks[i]
+  apply And.intro
+  · dsimp[term, aseq, ASeq.term, i]
+  · use i
 
+lemma sorted_indices (xs:List Nat) {hsort: List.Sorted (·<·) xs} (i j:Nat) (hij: i<j) (hj: j<xs.length)
+  : (xs[i]'(by omega) < xs[j]'hj) := by
+  conv at hsort => dsimp[List.Sorted]; rw[List.pairwise_iff_get]
+  simp_all
 
-theorem Rake.min_term_zero (r: Rake)
-  : ∀ n, (r.term 0 ≤ r.term n) := by
+def zero_le_cases (n:Nat) (zeq: 0=n → P) (zlt: 0<n → P) : P :=
+  if h:0=n then zeq h else zlt <| Nat.zero_lt_of_ne_zero λa=>h a.symm
+
+lemma sorted_get (xs:List Nat) (hxs: List.Sorted (·<·) xs) (i j:Fin xs.length) (hij: i<j)
+  : (xs[i] < xs[j]) := by
+  conv at hxs => dsimp[List.Sorted]; rw[List.pairwise_iff_get]
+  simp_all
+
+/--
+As currently defined, the terms of a rake can be non-ascending in one of two ways:
+- will have an ascending sawtooth pattern if ∃k∈r.ks, k>r.d
+- will be cyclic (and possibly constant) if r.d=0
+But in all cases, term 0 is the minimum. -/
+theorem Rake.min_term_zero (r: Rake) : ∀ n, (r.term 0 ≤ r.term n) := by
   intro n
-  have hdpos : 0 < r.d := sorry   --- !!not necessarily true
-  -- TODO: by_cases and show that it's still true when d=0
-  -- (because d=0 gives you a rake with cyclic terms but the
-  -- terms in the cycle are sorted and term 0 is still the min)
-  by_cases h: n=0
-  · simp_all
-  · have : 0<n := Nat.zero_lt_of_ne_zero h
-    have := r.ascending_terms hdpos this
-    exact Nat.le_of_succ_le this
+  obtain ⟨k₀, hk₀, i₀, hi₀⟩ := r.term_simp 0
+  obtain ⟨k₁, hk₁, i₁, hi₁⟩ := r.term_simp n
+  simp[hk₀, hk₁]
+  suffices k₀ ≤ k₁ by exact le_add_right this
+  rw[hi₀.right, hi₁.right]
+  apply zero_le_cases i₁.val; all_goals intro hi
+  case zeq => simp_all
+  case zlt =>
+    have : i₀.val < i₁.val := by aesop
+    exact Nat.le_of_succ_le <| sorted_get r.ks r.hsort i₀ i₁ this
 
 -- rakemap --------------------------------------------------------------------
 
