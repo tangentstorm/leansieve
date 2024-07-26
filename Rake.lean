@@ -13,11 +13,9 @@ structure Rake : Type where
   d     : Nat
   ks    : List Nat
   size : Nat := ks.length
-  hsort : List.Sorted (·<·) ks
-  hsize : 0 < ks.length
-
-theorem Rake.nodup {r:Rake} : List.Nodup r.ks :=
-  List.Sorted.nodup r.hsort
+  sorted: Bool := true
+  hsort : sorted → List.Sorted (·<·) ks := by simp
+  hsize : 0 < ks.length := by simp
 
 def sort_nodup (xs:List Nat) (hxs₀ : List.Nodup xs)
 : { xs':List Nat // List.Sorted (·<·) xs' ∧ xs'.length = xs.length } :=
@@ -27,20 +25,24 @@ def sort_nodup (xs:List Nat) (hxs₀ : List.Nodup xs)
   have hlength := by simp_all only [List.length_mergeSort, xs']
   ⟨xs', And.intro (List.Sorted.lt_of_le hsorted hnodup) hlength⟩
 
-def idr : Rake := {
-  d := 1, ks := [0],
-  hsort := by simp
-  hsize := by simp }
+def idr : Rake := { d := 1, ks := [0] }
 
-def rake0 : Rake := {
-  d := 0, ks := [0],
-  hsort := by simp
-  hsize := by simp }
+def rake0 : Rake := { d := 0, ks := [0] }
 
 def Rake.term (r: Rake) (n : Nat) : Nat :=
   let q := r.ks.length
   have : n%q < r.ks.length := Nat.mod_lt _ r.hsize
   aseq r.ks[n%q] r.d |>.term (n/q)
+
+def Rake.sort (r: Rake) : {r':Rake // r'.sorted } :=
+  if h: r.sorted then ⟨r, h⟩
+  else
+    let ks₀ := r.ks
+    let ks₁ := ks₀.dedup
+    let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
+  have hlen₁ : ks₁.length ≠ 0 := by have:=r.hsize; aesop
+  have hsize := Nat.lt_of_lt_of_eq (Nat.zero_lt_of_ne_zero hlen₁) ks₂.prop.right.symm
+  ⟨{ d:=r.d, ks:=ks₂, hsort:=λ_=>ks₂.prop.left, hsize := hsize}, rfl⟩
 
 lemma length_pos_of_dedup {l:List Nat} (hlen: 0 < l.length) : 0 < l.dedup.length := by
   obtain ⟨hd, tl, hcons⟩ := List.exists_cons_of_length_pos hlen
@@ -50,15 +52,8 @@ lemma length_pos_of_dedup {l:List Nat} (hlen: 0 < l.length) : 0 < l.dedup.length
 
 def Rake.gte (r: Rake) (n: Nat) : Rake  :=
   let f : ℕ → ℕ := (λk => let s := aseq k r.d; (ASeq.gte s n).k)
-  let ks₀ := r.ks.map f
-  let ks₁ := ks₀.dedup
-  let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
-  have hsize : 0 < ks₂.val.length := by
-    have h₀ : 0 < ks₀.length := Nat.lt_of_lt_of_eq r.hsize (r.ks.length_map _).symm
-    have h₁ : 0 < ks₁.length := length_pos_of_dedup h₀
-    have h₂: ks₂.val.length = ks₁.length := ks₁.length_mergeSort _
-    exact Nat.lt_of_lt_of_eq h₁ h₂.symm
-  { d := r.d, ks := ks₂, hsort := ks₂.prop.left, hsize := hsize }
+  { d := r.d, ks := r.ks.map f, sorted := false,
+    hsize := Nat.lt_of_lt_of_eq r.hsize (r.ks.length_map _).symm }
 
 def Rake.seq (r:Rake) (n:Nat) {hn:n<r.ks.length} : ASeq :=
   aseq (r.ks[n]'hn) r.d
@@ -74,10 +69,8 @@ and this would break the guarantee that term (n) < term n+1. -/
 def Rake.partition (r: Rake) (n: Nat) (hn: 0 < n): Rake :=
   let seqs' := r.seqs.map (λ s => s.partition n) |>.join
   let ks₀ := seqs'.map (λ s => s.k)
-  let ks₁ := ks₀.dedup
-  let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
-  have hsize : 0 < ks₂.val.length := by
-    -- aseq.partiton n  always produces a list of length n
+  -- aseq.partiton n  always produces a list of length n
+  have hsize := by
     have hlen₀: 0 < seqs'.length := by
       unfold_let; rw[List.length_join']; simp
       have : (List.length ∘ λs:ASeq=> s.partition n) = λ_ => n := by
@@ -90,15 +83,9 @@ def Rake.partition (r: Rake) (n: Nat) (hn: 0 < n): Rake :=
       have sum_rep {x y: Nat} : Nat.sum (List.replicate x y) = x*y := by
         induction x; simp_all; case succ hx => simp[hx]; linarith
       simp_all
-    -- dedup of a non-empty list produces a non-empty list
-    have hlen₁: 0 < ks₁.length := by
-      have : ks₀.length = seqs'.length := List.length_map seqs' _
-      exact length_pos_of_dedup (Nat.lt_of_lt_of_eq hlen₀ this.symm)
-    have : ks₁.length = ks₂.val.length := ks₂.prop.right.symm
-    exact Nat.lt_of_lt_of_eq hlen₁ this
-  { d := r.d * n, ks := ks₂
-    hsort := ks₂.prop.left
-    hsize := hsize }
+    have : ks₀.length = seqs'.length := List.length_map seqs' _
+    aesop
+  { d := r.d * n, ks := ks₀, sorted := false, hsize := hsize }
 
 def Rake.rem (r : Rake) (n : Nat) : Rake :=
   if hn₀ : n = 0 then r.gte 1
@@ -107,14 +94,9 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
     let gcd := r.d.gcd n
     have hz : 0 < (n/gcd) := Nat.div_gcd_pos_of_pos_right r.d hn
     let r' := if n∣r.d then r else r.partition (n/gcd) hz
-    let p := (λk => ¬n∣k)
-    let ks₀ := r'.ks |>.filter p
-    let ks₁ := ks₀.dedup
-    if hlen₁: ks₁.length = 0 then rake0
-    else let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
-      { d := r'.d, ks:=ks₂
-        hsort := ks₂.prop.left
-        hsize := Nat.lt_of_lt_of_eq (Nat.zero_lt_of_ne_zero hlen₁) ks₂.prop.right.symm }
+    let ks := r'.ks |>.filter (λk => ¬n∣k)
+    if hlen: ks.length = 0 then rake0
+    else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
 
 /-- proof that if a rake produces a term, it's because one of the sequences
     it contains produces that term. -/
@@ -201,7 +183,7 @@ As currently defined, the terms of a rake can be non-ascending in one of two way
 - will have an ascending sawtooth pattern if ∃k∈r.ks, k>r.d
 - will be cyclic (and possibly constant) if r.d=0
 But in all cases, term 0 is the minimum. -/
-theorem Rake.min_term_zero (r: Rake) : ∀ n, (r.term 0 ≤ r.term n) := by
+theorem Rake.sorted_min_term_zero (r: Rake) (hr: r.sorted) : ∀ n, (r.term 0 ≤ r.term n) := by
   intro n
   obtain ⟨k₀, hk₀, i₀, hi₀⟩ := r.term_simp 0
   obtain ⟨k₁, hk₁, i₁, hi₁⟩ := r.term_simp n
@@ -212,7 +194,7 @@ theorem Rake.min_term_zero (r: Rake) : ∀ n, (r.term 0 ≤ r.term n) := by
   case zeq => simp_all
   case zlt =>
     have : i₀.val < i₁.val := by aesop
-    exact Nat.le_of_succ_le <| sorted_get r.ks r.hsort i₀ i₁ this
+    exact Nat.le_of_succ_le <| sorted_get r.ks (r.hsort hr) i₀ i₁ this
 
 -- rakemap --------------------------------------------------------------------
 
@@ -245,27 +227,24 @@ section gte_lemmas
   --    - we don't add any new terms
 
   lemma RakeMap.gte_drop -- gte drops terms < p
-    : n < p → ¬(∃m, (rm.rake.gte p).term m = n) := by
+    : n < p → ¬(∃m, (rm.rake.gte p).sort.val.term m = n) := by
     intro hnp; push_neg; intro m
-    set r := rm.rake.gte p
+    let ⟨r,hrs⟩  := (rm.rake.gte p).sort
     show r.term m ≠ n
-    suffices p ≤ r.term 0 by have := r.min_term_zero m; omega
-    dsimp[r]
+    suffices p ≤ r.term 0 by have := Rake.sorted_min_term_zero r hrs m; omega
     obtain ⟨k,hk,i₀,hi₀⟩ := r.term_simp 0
     have : k ∈ r.ks := by
       have : i₀.val = 0 := by aesop
       have := List.get_mem r.ks i₀.val i₀.prop
       simp_all
-    unfold Rake.gte ASeq.gte Rake.term aseq
-    simp_all
     sorry
 
   lemma RakeMap.gte_keep -- gte keeps terms ≥ p
-    : n≥p ∧ (∃pm, rm.rake.term pm = n) → (∃m, (rm.rake.gte p).term m = n) := by
+    : n≥p ∧ (∃pm, rm.rake.term pm = n) → (∃m, (rm.rake.gte p).sort.val.term m = n) := by
     sorry
 
   lemma RakeMap.gte_same -- gte introduces no new terms
-    : (∃m, (rm.rake.gte p).term m = n) → (∃pm, rm.rake.term pm = n) := by
+    : (∃m, (rm.rake.gte p).sort.val.term m = n) → (∃pm, rm.rake.term pm = n) := by
     sorry
 
 end gte_lemmas
@@ -285,15 +264,15 @@ section rem_lemmas
   variable (rm: RakeMap prop) (p n: Nat) {hp: 0<p}
 
   lemma RakeMap.rem_drop -- rem drops multiples of p
-    : p∣n → ¬(∃m, (rm.rake.rem p).term m = n) := by
+    : p∣n → ¬(∃m, (rm.rake.rem p).sort.val.term m = n) := by
     sorry
 
   lemma RakeMap.rem_keep -- rem keeps non-multiples of p
-    : ¬(p∣n) ∧ (∃pm, rm.rake.term pm = n) → (∃m, (rm.rake.rem p).term m = n) := by
+    : ¬(p∣n) ∧ (∃pm, rm.rake.term pm = n) → (∃m, (rm.rake.rem p).sort.val.term m = n) := by
     sorry
 
   lemma RakeMap.rem_same -- rem introduces no new terms
-    : (∃m, (rm.rake.rem p).term m = n) → (∃pm, rm.rake.term pm = n) := by
+    : (∃m, (rm.rake.rem p).sort.val.term m = n) → (∃pm, rm.rake.term pm = n) := by
     sorry
 
 end rem_lemmas
@@ -304,10 +283,10 @@ end rem_lemmas
 
 def RakeMap.gte (prev : RakeMap prop) (p: Nat)
   : RakeMap (λ n => prop n ∧ n ≥ p) :=
-  let rake := prev.rake.gte p
+  let rake := (prev.rake.gte p).sort
   let proof := by
     intro n; symm
-    let hm : Prop := (∃m, rake.term m = n)
+    let hm : Prop := (∃m, rake.val.term m = n)
     let hpm : Prop := (∃pm, prev.rake.term pm = n )
     have : prop n ↔ hpm := prev.hbij n
     have : n<p → ¬hm := gte_drop prev p n
@@ -318,10 +297,10 @@ def RakeMap.gte (prev : RakeMap prop) (p: Nat)
 
 def RakeMap.rem (prev : RakeMap prop) (p: Nat)
   : RakeMap (λ n => prop n ∧ ¬(p∣n)) :=
-  let rake := prev.rake.rem p
+  let rake := (prev.rake.rem p).sort
   let proof := by
     intro n; symm
-    let hm : Prop := (∃m, rake.term m = n)
+    let hm : Prop := (∃m, rake.val.term m = n)
     let hpm : Prop := (∃pm, prev.rake.term pm = n )
     have : prop n ↔ hpm := prev.hbij n
     have : p∣n → ¬hm := rem_drop prev p n
