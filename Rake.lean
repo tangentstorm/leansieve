@@ -48,7 +48,7 @@ lemma length_pos_of_dedup {l:List Nat} (hlen: 0 < l.length) : 0 < l.dedup.length
   rw[←List.mem_dedup] at this
   exact List.length_pos_of_mem this
 
-def Rake.gte (r: Rake) (n: Nat) : Rake :=
+def Rake.gte (r: Rake) (n: Nat) : Rake  :=
   let f : ℕ → ℕ := (λk => let s := aseq k r.d; (ASeq.gte s n).k)
   let ks₀ := r.ks.map f
   let ks₁ := ks₀.dedup
@@ -58,10 +58,7 @@ def Rake.gte (r: Rake) (n: Nat) : Rake :=
     have h₁ : 0 < ks₁.length := length_pos_of_dedup h₀
     have h₂: ks₂.val.length = ks₁.length := ks₁.length_mergeSort _
     exact Nat.lt_of_lt_of_eq h₁ h₂.symm
-  { d := r.d, ks := ks₂
-    hsort := ks₂.prop.left
-    hsize := hsize }
-
+  { d := r.d, ks := ks₂, hsort := ks₂.prop.left, hsize := hsize }
 
 def Rake.seq (r:Rake) (n:Nat) {hn:n<r.ks.length} : ASeq :=
   aseq (r.ks[n]'hn) r.d
@@ -235,8 +232,32 @@ section gte_lemmas
 
   variable (rm: RakeMap prop) (p n: Nat)
 
+  -- the gist of the argument I want to make here is that
+  -- for each k (sequence), I just fast-forward it so that
+  -- it skips over the discarded terms. we have these:
+  -- theorem gte_term (s : ASeq) (n : Nat) : s.d > 0 → n ≤ term (s.gte n) 0
+  -- theorem gte_same_delta (s : ASeq) (n : Nat) : (s.gte n).d = s.d
+  -- lemma Rake.___unused______ex_seq (r: Rake) : (r.term m = n) → (∃k ∈ r.ks, n = k + r.d * (m/r.ks.length))
+  -- we're /potentially/ modifying every single constant.
+  -- we have to say for each sequence:
+  --    - we drop only the terms we won't need
+  --    - we keep all the terms we used to have
+  --    - we don't add any new terms
+
   lemma RakeMap.gte_drop -- gte drops terms < p
     : n < p → ¬(∃m, (rm.rake.gte p).term m = n) := by
+    intro hnp; push_neg; intro m
+    set r := rm.rake.gte p
+    show r.term m ≠ n
+    suffices p ≤ r.term 0 by have := r.min_term_zero m; omega
+    dsimp[r]
+    obtain ⟨k,hk,i₀,hi₀⟩ := r.term_simp 0
+    have : k ∈ r.ks := by
+      have : i₀.val = 0 := by aesop
+      have := List.get_mem r.ks i₀.val i₀.prop
+      simp_all
+    unfold Rake.gte ASeq.gte Rake.term aseq
+    simp_all
     sorry
 
   lemma RakeMap.gte_keep -- gte keeps terms ≥ p
@@ -244,12 +265,22 @@ section gte_lemmas
     sorry
 
   lemma RakeMap.gte_same -- gte introduces no new terms
-    : (∃pm, (rm.rake.gte p).term pm = n) → (∃pm, rm.rake.term pm = n) := by
+    : (∃m, (rm.rake.gte p).term m = n) → (∃pm, rm.rake.term pm = n) := by
     sorry
 
 end gte_lemmas
 
 section rem_lemmas
+
+  -- now it's more complicated. first we partition each sequence
+  -- then we remove the sequences that are multiples of a prime
+  -- how do we know:
+  --   - we dropped the multiples?
+  --     - partition step keeps same terms
+  --     - but now every sequence either ALWAYS or NEVER produces multiples of p
+  --     - we can tell the difference, and only drop the ones that always produce multiples
+  --   - we know we kept everything else because it's a straight filter operation.
+
 
   variable (rm: RakeMap prop) (p n: Nat) {hp: 0<p}
 
@@ -262,7 +293,7 @@ section rem_lemmas
     sorry
 
   lemma RakeMap.rem_same -- rem introduces no new terms
-    : (∃pm, (rm.rake.rem p).term pm = n) → (∃pm, rm.rake.term pm = n) := by
+    : (∃m, (rm.rake.rem p).term m = n) → (∃pm, rm.rake.term pm = n) := by
     sorry
 
 end rem_lemmas
