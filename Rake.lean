@@ -25,9 +25,9 @@ def sort_nodup (xs:List Nat) (hxs₀ : List.Nodup xs)
   have hlength := by simp_all only [List.length_mergeSort, xs']
   ⟨xs', And.intro (List.Sorted.lt_of_le hsorted hnodup) hlength⟩
 
-def idr : Rake := { d := 1, ks := [0] }
-
-def rake0 : Rake := { d := 0, ks := [0] }
+def zer : Rake := { d := 0, ks := [0] }
+def nat : Rake := { d := 1, ks := [0] }
+def ge2 : Rake := { d := 1, ks := [2] }
 
 def Rake.term (r: Rake) (n : Nat) : Nat :=
   let q := r.ks.length
@@ -95,7 +95,7 @@ def Rake.rem (r : Rake) (n : Nat) : Rake :=
     have hz : 0 < (n/gcd) := Nat.div_gcd_pos_of_pos_right r.d hn
     let r' := if n∣r.d then r else r.partition (n/gcd) hz
     let ks := r'.ks |>.filter (λk => ¬n∣k)
-    if hlen: ks.length = 0 then rake0
+    if hlen: ks.length = 0 then zer
     else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
 
 /-- proof that if a rake produces a term, it's because one of the sequences
@@ -167,50 +167,20 @@ structure RakeMap (pred: Nat → Prop) where
 
 def RakeMap.pred {p:Nat → Prop} (_:RakeMap p) : Nat → Prop := p
 
-/-- proof that idr.term provides a bijection from Nat → Nat
+/-- proof that rm_nat.term provides a bijection from Nat → Nat
  (it happens to be an identity map, but this is not necessary for proofs) -/
-def idrm : RakeMap (λ _ => True) := {
-  rake := idr
-  hbij := by intro n; simp[Rake.term, idr, aseq, ASeq.term]}
+def rm_nat : RakeMap (λ _ => True) := {
+  rake := nat
+  hbij := by intro n; simp[Rake.term, nat, aseq, ASeq.term]}
 
-section gte_lemmas
-
-  variable (rm: RakeMap prop) (p n: Nat)
-
-  -- the gist of the argument I want to make here is that
-  -- for each k (sequence), I just fast-forward it so that
-  -- it skips over the discarded terms. we have these:
-  -- theorem gte_term (s : ASeq) (n : Nat) : s.d > 0 → n ≤ term (s.gte n) 0
-  -- theorem gte_same_delta (s : ASeq) (n : Nat) : (s.gte n).d = s.d
-  -- lemma Rake.___unused______ex_seq (r: Rake) : (r.term m = n) → (∃k ∈ r.ks, n = k + r.d * (m/r.ks.length))
-  -- we're /potentially/ modifying every single constant.
-  -- we have to say for each sequence:
-  --    - we drop only the terms we won't need
-  --    - we keep all the terms we used to have
-  --    - we don't add any new terms
-
-  lemma RakeMap.gte_drop -- gte drops terms < p
-    : n < p → ¬(∃m, (rm.rake.gte p).sort.val.term m = n) := by
-    intro hnp; push_neg; intro m
-    let ⟨r,hrs⟩  := (rm.rake.gte p).sort
-    show r.term m ≠ n
-    suffices p ≤ r.term 0 by have := Rake.sorted_min_term_zero r hrs m; omega
-    obtain ⟨k,hk,i₀,hi₀⟩ := r.term_simp 0
-    have : k ∈ r.ks := by
-      have : i₀.val = 0 := by aesop
-      have := List.get_mem r.ks i₀.val i₀.prop
-      simp_all
-    sorry
-
-  lemma RakeMap.gte_keep -- gte keeps terms ≥ p
-    : n≥p ∧ (∃pm, rm.rake.term pm = n) → (∃m, (rm.rake.gte p).sort.val.term m = n) := by
-    sorry
-
-  lemma RakeMap.gte_same -- gte introduces no new terms
-    : (∃m, (rm.rake.gte p).sort.val.term m = n) → (∃pm, rm.rake.term pm = n) := by
-    sorry
-
-end gte_lemmas
+def rm_ge2 : RakeMap (λn => 2≤n) := {
+  rake := ge2
+  hbij := by
+    intro n; simp[Rake.term, ge2, aseq, ASeq.term]; apply Iff.intro
+    · show 2 ≤ n → ∃ m, 2 + m = n
+      intro n2; use n-2; simp_all
+    · show (∃ m, 2 + m = n) → 2 ≤ n
+      intro hm; obtain ⟨m,hm⟩ := hm; rw[←hm]; simp }
 
 section rem_lemmas
 
@@ -240,23 +210,7 @@ section rem_lemmas
 
 end rem_lemmas
 
-
 -- operations on RakeMap -------------------------------------------------------
--- these proofs are exactly the same except for the proposition
-
-def RakeMap.gte (prev : RakeMap prop) (p: Nat)
-  : RakeMap (λ n => prop n ∧ n ≥ p) :=
-  let rake := (prev.rake.gte p).sort
-  let proof := by
-    intro n; symm
-    let hm : Prop := (∃m, rake.val.term m = n)
-    let hpm : Prop := (∃pm, prev.rake.term pm = n )
-    have : prop n ↔ hpm := prev.hbij n
-    have : n<p → ¬hm := gte_drop prev p n
-    have : n≥p ∧ hpm → hm := gte_keep prev p n
-    have : hm → hpm := gte_same prev p n
-    by_cases n<p; all_goals aesop
-  { rake := rake, hbij := proof }
 
 def RakeMap.rem (prev : RakeMap prop) (p: Nat)
   : RakeMap (λ n => prop n ∧ ¬(p∣n)) :=
