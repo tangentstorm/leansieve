@@ -120,13 +120,51 @@ theorem div_lt_of_lt_mod_eq {m n d:Nat} {hdpos: 0 < d} {hmn: m<n} : (m%d = n%d) 
   rw[←m.div_add_mod d, ←n.div_add_mod d, hmod, Nat.add_lt_add_iff_right] at hmn
   exact (Nat.mul_lt_mul_left hdpos).mp hmn
 
-lemma Rake.term_simp (r:Rake) (n:Nat)
+theorem Rake.term_simp (r:Rake) (n:Nat)
 : (∃k, (r.term n = k + r.d * (n/r.ks.length)) ∧ ∃i: Fin r.ks.length, i=n%r.ks.length ∧ k=r.ks[i]) := by
   let i: Fin r.ks.length := ⟨n%r.ks.length, Nat.mod_lt n r.hsize⟩
   use r.ks[i]
   apply And.intro
   · dsimp[term, aseq, ASeq.term, i]
   · use i
+
+theorem Rake.term_iff (r:Rake)
+  : ∀m, (∃n, r.term n = m) ↔ (∃ k∈r.ks,  ∃x:Nat, k+x*r.d = m) := by
+  intro m; apply Iff.intro
+  · show (∃ n, r.term n = m) → ∃ k ∈ r.ks, ∃ x, k + x * r.d = m
+    -- this is just grunt work, but it follows from the definition of term
+    intro ⟨n,hn⟩; obtain ⟨k, hk₀, hk₁, hk₂, hk₃⟩ := r.term_simp n
+    use k; apply And.intro
+    · simp_all[List.mem_iff_get];
+    · use (n/r.ks.length); subst hk₃ hn; simp_all;
+      exact Nat.mul_comm (n / r.ks.length) r.d
+
+  . show (∃ k ∈ r.ks, ∃ x, k + x * r.d = m) → ∃ n, r.term n = m
+    -- in other words, given some k in our list and an arbitrary x
+    -- the rake ought to produce m = k + x * r.d at some point. we prove
+    -- this by working backwards to calculate what n we have to plug
+    -- into (r.term n) in order to get n back out.
+    intro ⟨k, hk, hx₀⟩
+
+    -- k is a member of ks so it must have an index in ks: k=r.ks.get i
+    rw[List.mem_iff_get] at hk
+    obtain ⟨i: Fin r.ks.length, hi₀ : r.ks.get i = k⟩ := hk
+
+    -- k uniquely identifies a particular arithmetic sequence within
+    -- the rake, and there's some x that we can feed into this sequence
+    -- to get the result m. we can obtain it:
+    obtain ⟨x, hx: k + x * r.d = m⟩ := hx₀
+
+    -- now we can choose n so that r.term n picks k=ks[ i ] as the constant.
+    -- this happens ∀ n, i = n % r.ks.length ∧ x = n / r.ks.length
+    have hi₁: i.val % r.ks.length = i := by exact Nat.mod_eq_of_lt i.prop
+    let n := (i.val % r.ks.length) + (x * r.ks.length)
+
+    -- now we run this definition of `n` through `r.term n` and
+    -- once we deal with annoying divmod issues, out comes the result.
+    use n; unfold_let; dsimp[term, aseq, ASeq.term]; simp_all[hi₁]
+    rw[Nat.add_mul_div_right i.val x r.hsize, ←hi₁, Nat.mul_comm]
+    simp; exact hx
 
 lemma sorted_indices (xs:List Nat) {hsort: List.Sorted (·<·) xs} (i j:Nat) (hij: i<j) (hj: j<xs.length)
   : (xs[i]'(by omega) < xs[j]'hj) := by
