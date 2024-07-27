@@ -1,8 +1,8 @@
 import Rake
 
 /--
-A RakeMap is a Rake that provides a 1-to-1 mapping between the rake
-and a set of numbers with some property. -/
+A RakeMap is a Rake that provides a 1-to-1 mapping between
+the rake and a set of numbers with some property. -/
 structure RakeMap (pred: Nat → Prop) where
   rake : Rake
   hbij : ∀ n, pred n ↔ ∃ m, rake.term m = n
@@ -12,12 +12,11 @@ namespace RakeMap
 
 open Rake
 
+def pred {p:Nat → Prop} (_:RakeMap p) : Nat → Prop := p
 def term (rm: RakeMap p) (n:Nat) := rm.rake.term n
 
 theorem min_term_zero (rm:RakeMap p)  : ∀ n, (rm.term 0 ≤ rm.term n) :=
   @Rake.sorted_min_term_zero rm.rake rm.hord
-
-def pred {p:Nat → Prop} (_:RakeMap p) : Nat → Prop := p
 
 /-- proof that rm_nat.term provides a bijection from Nat → Nat
  (it happens to be an identity map, but this is not necessary for proofs) -/
