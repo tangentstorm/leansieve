@@ -12,8 +12,13 @@ structure RakeSieve where
   hRmin : ∀ r ∈ R p, c ≤ r
   -- Q : Array RakeMap     -- queue of found primes
 
+def RakeSieve.sort (r: RakeSieve) : {r': RakeSieve // r'.rm.rake.sorted } :=
+  let ⟨rm', hs⟩ := r.rm.rake.sort
+  ⟨{ prop := r.prop, rm := rm', p:=r.p, c:=r.c,
+     hprop:=r.hprop, hCinR := r.hCinR, hRmin := r.hRmin  }, rfl⟩
+
 def RakeSieve.init : RakeSieve :=
-  let rm := idrm.gte 2 |>.rem 2
+  let rm := rm_ge2 |>.rem 2
   let p := ⟨2, Nat.prime_two⟩
   { prop := rm.pred, rm := rm, p := p, c := 3,
     hprop := by
@@ -65,7 +70,7 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
   have hmin: ∀ q < x.c, ¬PrimeGt (↑x.p) q := by
     simp_all; intro q hq hq'; apply hNS at hq'; omega
   let m : MinPrimeGt x.p := { p:=x.c, hpgt:=hpgt, hmin:=hmin}
-  let rm := x.rm.rem m.p
+  let ⟨rm, hs⟩ := x.rm.rem m.p |>.sort
   let c₁ := rm.rake.term 0
   have hc₁: ∃ i, rm.rake.term i = c₁ := by
     exact exists_apply_eq_apply (fun a => rm.rake.term a) 0
@@ -89,7 +94,7 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
         exact hr
       obtain ⟨k, hk⟩ := this
       rw[←hk]
-      exact Rake.min_term_zero rm.rake k}
+      exact Rake.sorted_min_term_zero rm.rake (rm.rake.hsort hs) k}
 
 open RakeSieve
 
