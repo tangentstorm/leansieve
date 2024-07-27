@@ -1,5 +1,5 @@
 -- RakeSieve uses a rake to implement a prime sieve.
-import Rake
+import RakeMap
 import PrimeSieve
 
 structure RakeSieve where
@@ -12,12 +12,11 @@ structure RakeSieve where
   hRmin : ∀ r ∈ R p, c ≤ r
   -- Q : Array RakeMap     -- queue of found primes
 
-def RakeSieve.sort (r: RakeSieve) : {r': RakeSieve // r'.rm.rake.sorted } :=
-  let ⟨rm', hs⟩ := r.rm.rake.sort
-  ⟨{ prop := r.prop, rm := rm', p:=r.p, c:=r.c,
-     hprop:=r.hprop, hCinR := r.hCinR, hRmin := r.hRmin  }, rfl⟩
+namespace RakeSieve
 
-def RakeSieve.init : RakeSieve :=
+open RakeMap
+
+def init : RakeSieve :=
   let rm := rm_ge2 |>.rem 2
   let p := ⟨2, Nat.prime_two⟩
   { prop := rm.pred, rm := rm, p := p, c := 3,
@@ -59,18 +58,18 @@ def RakeSieve.init : RakeSieve :=
       -- now we can use hrr to prove ¬2∣2, which is absurd
       have := Nat.prime_two; aesop }
 
-def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): RakeSieve :=
-  let h₀ := x.prop
-  have hh₀ : ∀n, h₀ n ↔ n ∈ R x.p := x.hprop
-  have hCR₀ := x.hCinR
-  have hpgt:PrimeGt x.p x.c := by
+def next (rm₀ : RakeSieve) (hC₀: Nat.Prime rm₀.c) (hNS: nosk' rm₀.p rm₀.c): RakeSieve :=
+  let h₀ := rm₀.prop
+  have hh₀ : ∀n, h₀ n ↔ n ∈ R rm₀.p := rm₀.hprop
+  have hCR₀ := rm₀.hCinR
+  have hpgt:PrimeGt rm₀.p rm₀.c := by
     constructor
     · exact hC₀
-    · exact r_gt_p (↑x.p) x.c hCR₀
-  have hmin: ∀ q < x.c, ¬PrimeGt (↑x.p) q := by
+    · exact r_gt_p (↑rm₀.p) rm₀.c hCR₀
+  have hmin: ∀ q < rm₀.c, ¬PrimeGt (↑rm₀.p) q := by
     simp_all; intro q hq hq'; apply hNS at hq'; omega
-  let m : MinPrimeGt x.p := { p:=x.c, hpgt:=hpgt, hmin:=hmin}
-  let ⟨rm, hs⟩ := x.rm.rem m.p |>.sort
+  let m : MinPrimeGt rm₀.p := { p:=rm₀.c, hpgt:=hpgt, hmin:=hmin}
+  let rm := rm₀.rm.rem m.p
   let c₁ := rm.rake.term 0
   have hc₁: ∃ i, rm.rake.term i = c₁ := by
     exact exists_apply_eq_apply (fun a => rm.rake.term a) 0
@@ -89,14 +88,12 @@ def RakeSieve.next (x : RakeSieve) (hC₀: Nat.Prime x.c) (hNS: nosk' x.p x.c): 
       dsimp[c₁,p,h₁] at *
       intro r hr
       have : ∃k, rm.rake.term k = r := by
-        have : x.c = m.p := by rfl
-        conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹x.c=m.p›, rm.hbij r]
+        have : rm₀.c = m.p := by rfl
+        conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹rm₀.c=m.p›, rm.hbij r]
         exact hr
       obtain ⟨k, hk⟩ := this
       rw[←hk]
-      exact Rake.sorted_min_term_zero rm.rake (rm.rake.hsort hs) k}
-
-open RakeSieve
+      exact rm.min_term_zero k }
 
 instance : PrimeSieveState RakeSieve where
   P x := x.p
