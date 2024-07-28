@@ -157,6 +157,10 @@ theorem sorted_min_term_zero (r: Rake) (hr: r.sorted) : ∀ n, (r.term 0 ≤ r.t
     have : i₀.val < i₁.val := by aesop
     exact Nat.le_of_succ_le <| sorted_get r.ks (r.hsort hr) i₀ i₁ this
 
+theorem sort_term_iff_term  (r:Rake) (n:Nat)
+  : (∃m, r.term m = n) ↔ (∃m', r.sort.val.term m' = n) := by
+  sorry
+
 end « sort and dedup »
 
 section « rake operations »
@@ -203,6 +207,23 @@ def rem (r : Rake) (n : Nat) : Rake :=
     let ks := r'.ks |>.filter (λk => ¬n∣k)
     if hlen: ks.length = 0 then zer
     else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
+
+-- `RakeMap.rem` depends on the correctness of `Rake.rem`.
+-- the following theorems provide this proof.
+
+variable (r: Rake) (p n: Nat) {hp: 0<p}
+
+theorem rem_drop -- rem drops multiples of p
+  : p∣n → ¬(∃m, (r.rem p).term m = n) := by
+  sorry
+
+theorem rem_keep -- rem keeps non-multiples of p
+  : ¬(p∣n) ∧ (∃pm, r.term pm = n) → (∃m, (r.rem p).term m = n) := by
+  sorry
+
+theorem rem_same -- rem introduces no new terms
+  : (∃m, (r.rem p).term m = n) → (∃pm, r.term pm = n) := by
+  sorry
 
 end « rem (remove multiples) »
 
