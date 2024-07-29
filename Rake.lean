@@ -4,6 +4,7 @@ import ASeq
 import MathLib.Data.List.Sort
 import Mathlib.Data.List.Dedup
 import Mathlib.Data.List.Basic
+import Mathlib.Data.List.Perm
 
 structure Rake : Type where
   d     : Nat
@@ -11,6 +12,7 @@ structure Rake : Type where
   size : Nat := ks.length
   sorted: Bool := true
   hsort : sorted → List.Sorted (·<·) ks := by simp
+  huniq : sorted → ks.Nodup := by simp
   hsize : 0 < ks.length := by simp
 
 namespace Rake
@@ -108,22 +110,31 @@ end « sequences »
 section « sort and dedup »
 
 def sort_nodup (xs:List Nat) (hxs₀ : List.Nodup xs)
-: { xs':List Nat // List.Sorted (·<·) xs' ∧ xs'.length = xs.length } :=
+: { xs':List Nat // List.Sorted (·<·) xs' ∧ xs'.Perm xs
+    ∧ xs.length = xs'.length ∧ xs'.Nodup } :=
   let xs' := xs.mergeSort (·≤·)
   have hnodup : xs'.Nodup := xs.perm_mergeSort (·≤·) |>.nodup_iff |>.mpr hxs₀
   have hsorted: List.Sorted (·≤·) xs' := List.sorted_mergeSort (·≤·) xs
   have hlength := by simp_all only [List.length_mergeSort, xs']
-  ⟨xs', And.intro (List.Sorted.lt_of_le hsorted hnodup) hlength⟩
+  have hperm : xs'.Perm xs := List.perm_mergeSort (·≤·) xs
+  ⟨xs', And.intro (List.Sorted.lt_of_le hsorted hnodup)
+    (And.intro hperm (And.intro hlength hnodup))⟩
 
-def sort (r: Rake) : {r':Rake // r'.sorted } :=
-  if h: r.sorted then ⟨r, h⟩
+def sort (r: Rake) : {r':Rake // r'.d=r.d ∧ r'.sorted ∧ r'.ks.Perm r.ks.dedup } :=
+  if hs: r.sorted then
+    have hp: r.ks.Perm r.ks.dedup := by
+      have := r.huniq hs
+      rw[←r.ks.dedup_eq_self] at this
+      rw[this]
+    ⟨r, And.intro rfl <| And.intro hs hp⟩
   else
     let ks₀ := r.ks
     let ks₁ := ks₀.dedup
     let ks₂ := sort_nodup ks₁ ks₀.nodup_dedup
+  have ⟨hsort, hperm, hlength, hnodup⟩  := ks₂.prop
   have hlen₁ : ks₁.length ≠ 0 := by have:=r.hsize; aesop
-  have hsize := Nat.lt_of_lt_of_eq (Nat.zero_lt_of_ne_zero hlen₁) ks₂.prop.right.symm
-  ⟨{ d:=r.d, ks:=ks₂, hsort:=λ_=>ks₂.prop.left, hsize := hsize}, rfl⟩
+  have hsize := Nat.lt_of_lt_of_eq (Nat.zero_lt_of_ne_zero hlen₁) hlength
+  ⟨{ d:=r.d, ks:=ks₂, hsort:=λ_=>hsort, huniq:=λ_=>hnodup, hsize:=_}, (by aesop)⟩
 
 lemma length_pos_of_dedup {l:List Nat} (hlen: 0 < l.length) : 0 < l.dedup.length := by
   obtain ⟨hd, tl, hcons⟩ := List.exists_cons_of_length_pos hlen
@@ -159,7 +170,22 @@ theorem sorted_min_term_zero (r: Rake) (hr: r.sorted) : ∀ n, (r.term 0 ≤ r.t
 
 theorem sort_term_iff_term  (r:Rake) (n:Nat)
   : (∃m, r.term m = n) ↔ (∃m', r.sort.val.term m' = n) := by
-  sorry
+  if h: r.sorted then unfold sort; aesop
+  else
+    let ⟨rs, ⟨hd, hsort, hperm⟩⟩ := r.sort; simp
+    have : ∀k, k∈rs.ks ↔ k∈r.ks.dedup := fun k => List.Perm.mem_iff hperm
+    have hmem : ∀k, k∈r.ks ↔ k∈rs.ks := by aesop
+    apply Iff.intro
+    all_goals
+      intro h; rw[term_iff] at h; obtain ⟨k, hk₀, hk₁⟩ := h
+      specialize hmem k
+      rw[term_iff]
+      use k
+      apply And.intro
+    · rwa[←hmem]
+    · rwa[hd]
+    · rwa[hmem]
+    · rwa[←hd]
 
 end « sort and dedup »
 
