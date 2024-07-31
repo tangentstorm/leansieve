@@ -237,9 +237,6 @@ theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i) (h)
     r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
   := by simp[partition]
 
-
-
-
 -- i had originally planned to approach it like this:
 theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j)
 : ∀n, (∃m, (r.partition j hj).term m = n)  ↔ (∃m, r.term m = n) := by
@@ -252,7 +249,6 @@ theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j)
   · sorry -- eventually specialize the hypothesis h using (??)
 -- then translate each side into the ∃ k form, and show that i can express either side in terms of the other,
 -- given the formula in partition_ks and the new delta (r'.d = r.d*j).
-
 
 theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j) (xhdpos:0 < r.d)
 : ∀m, (r.partition j hj).term m = r.term m := by
@@ -367,19 +363,40 @@ theorem rem_drop -- rem drops multiples of p
     simp_all[List.mem_filter]
 
 theorem rem_keep -- rem keeps non-multiples of p
-  : 0<n → ¬(p∣n) ∧ (∃pm, r.term pm = n) → (∃m, (r.rem p hp).term m = n) := by
-  -- this should follow from partition_term_iff and the filter in rem
-  intro hn; simp[term_iff]
-  intro k hk x hx
-  sorry
+  : 0<n → ¬(p∣n) → (∃m, r.term m = n) → (∃m', (r.rem p hp).term m' = n) := by
+  -- this should follow from partition_term_iff and the nature of filter
+  intro hpos hpn ht
+  have ht' := ht
+  -- r produces terms that don't divide k, and r.partition produces the same terms.
+  rw[←r.partition_term_iff p hp n, term_iff] at ht'
+  -- since r.partition produces n, we can show ¬p∣k for the corresponding k
+  obtain ⟨k, hk, x, hx⟩ := ht'
+  set r' := r.rem p hp
+  have : ¬ p ∣ k := by
+    by_contra h
+    have : p ∣  r.d * p * x := by
+      have : p ∣  p * (r.d * x) := Nat.dvd_mul_right p _
+      rwa[Nat.mul_left_comm,←Nat.mul_assoc] at this
+    have :  p ∣ k + r.d * p * x := by exact (Nat.dvd_add_iff_right h).mp this
+    have : ¬p ∣ k + r.d * p * x := by
+      have : (r.partition p hp).d = r.d * p := by aesop
+      rwa[←hx, this,Nat.mul_comm] at hpn
+    contradiction
+  obtain hzer | ⟨hp', hks'⟩ := rem_def r p hp r' rfl
+  · -- the r'=zer case can't actually happen here, because ht:r.term m = n and hpn:¬p∣n.
+    sorry
+  · -- for the normal case,
+    have : k ∈ r'.ks := by simp[hk, hks', this, List.mem_filter]
+    rw[term_iff]
+    use k; aesop
 
 theorem rem_same -- rem introduces no new terms
   : 0<n → (∃m, (r.rem p hp).term m = n) → (∃pm, r.term pm = n) := by
-  -- this follows from partition_term_iff and some fact
-  intro hn; rw[term_iff]; intro h; obtain ⟨k, hk, x, hx⟩ := h
+  -- this follows from partition_term_iff and the nature of filter.
+  intro hn h; rw[term_iff] at h; obtain ⟨k, hk, x, hx⟩ := h
   set r' := r.rem p hp
   obtain hzer | ⟨hp', hks'⟩ := rem_def r p hp r' rfl
-  -- hn lets us ignore teh hzer case, since it would lead to a contradiction
+  -- hn lets us ignore the hzer case, since it would lead to a contradiction
   · have : n = 0 := by simp_all[zer]
     have : n ≠ 0 := Nat.not_eq_zero_of_lt hn
     contradiction
