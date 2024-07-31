@@ -197,26 +197,148 @@ Partition each sequence in the rake by partitioning their *inputs*
 into equivalance classes mod n. This multiplies the number of sequences
 by n. We can't allow n to be zero because then we'd have no sequences left,
 and this would break the guarantee that term (n) < term n+1. -/
-def partition (r: Rake) (n: Nat) (hn: 0 < n): Rake :=
-  let seqs' := r.seqs.map (λ s => s.partition n) |>.join
+def partition₀ (r: Rake) (j: Nat) (hj: 0 < j): Rake :=
+  let seqs' := r.seqs.map (λ s => s.partition j) |>.join
   let ks₀ := seqs'.map (λ s => s.k)
   -- aseq.partiton n  always produces a list of length n
   have hsize := by
     have hlen₀: 0 < seqs'.length := by
       unfold_let; rw[List.length_join']; simp
-      have : (List.length ∘ λs:ASeq=> s.partition n) = λ_ => n := by
-        calc (List.length ∘ λ s => s.partition n)
-          _ = λs:ASeq => (s.partition n).length := by rfl
-          _ = λ_:ASeq => n := by conv=> lhs; simp[ASeq.length_partition]
+      have : (List.length ∘ λs:ASeq=> s.partition j) = λ_ => j := by
+        calc (List.length ∘ λ s => s.partition j)
+          _ = λs:ASeq => (s.partition j).length := by rfl
+          _ = λ_:ASeq => j := by conv=> lhs; simp[ASeq.length_partition]
       have : 0 < r.seqs.length := by unfold seqs; simp[List.length_map, r.hsize]
       simp_all -- this introduces "replicate" because the lengths are all the same.
-      show 0 < Nat.sum (List.replicate r.seqs.length n)
+      show 0 < Nat.sum (List.replicate r.seqs.length j)
       have sum_rep {x y: Nat} : Nat.sum (List.replicate x y) = x*y := by
         induction x; simp_all; case succ hx => simp[hx]; linarith
       simp_all
     have : ks₀.length = seqs'.length := List.length_map seqs' _
     aesop
-  { d := r.d * n, ks := ks₀, sorted := false, hsize := hsize }
+  { d := r.d * j, ks := ks₀, sorted := false, hsize := hsize }
+
+lemma List.mod_length {α : Type} (l:List α) (i:Nat) (hl: 0 < l.length)
+  : (i % l.length) < l.length := by exact Nat.mod_lt (↑i) hl
+
+def partition (r:Rake) (j: Nat) (hj:0<j:=by simp): Rake :=
+  let ks' := List.range (j*r.ks.length) |>.map λi =>
+    r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
+  have : ks'.length = j*r.ks.length := by simp[ks', r.hsize]
+  have := r.hsize
+  { d:= r.d*j, ks := ks', sorted:=false, hsize:=by aesop }
+
+@[simp]
+theorem length_partition (r:Rake) (j: Nat) (hj:0<j)
+  : (r.partition j hj).ks.length = j * r.ks.length := by simp[partition]
+
+def r:Rake := { d:=6, ks:=[5,7] } -- 5+6*n    7+6*n
+--- partition:  5+6*n → 5+6*(0+5n)  5+6*(1+5n)  5+6*(2+5n)  |7+6*(3+5n)  5+6*(4+5n)
+---                     5+30n       11+30n      17+30n      |25+5n
+--                     5(1+6n)                              |5(5+n)5
+#guard (r.partition 5).ks = [5, 7, 11, 13, 17, 19, 23, 25, 29, 31]
+#guard r.terms 10 = (r.partition 5).terms 10
+#eval r.terms 10
+
+theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i) (h)
+  : (r.partition j hj).ks[i] =
+    r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
+  := by simp[partition]
+
+
+
+
+-- i had originally planned to approach it like this:
+theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
+: ∀n, (∃m, (r.partition j hj).term m = n)  ↔ (∃m, r.term m = n) := by
+  intro n; rw[term_iff]
+  apply Iff.intro
+  all_goals
+    intro h
+    obtain ⟨k, hk₀, hk₁⟩ := h
+  · sorry -- eventually "use m"
+  · sorry -- eventually specialize the hypothesis h using (??)
+-- then translate each side into the ∃ k form, and show that i can express either side in terms of the other,
+-- given the formula in partition_ks and the new delta (r'.d = r.d*j).
+
+
+theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
+: ∀m, (r.partition j hj).term m = r.term m := by
+  intro m
+
+  simp[partition, term, List.get, aseq, ASeq.term]
+  set i := m % r.ks.length
+  set k := r.ks.get ⟨i,_⟩
+  set c := r.ks.length
+  have : 0 < c := r.hsize
+  -- now use algebra to show equivalence of the unfolded definitions,
+  -- while tap-dancing around the division and subtraction rules for Nat.
+  show  k + m%(j*c)/c*r.d   + r.d*j*(m/(j*c)) = k + r.d*(m/c)
+  calc  k + m%(j*c)/c*r.d   + r.d*j*(m/(j*c))
+    _ = k +  r.d*(m%(j*c)/c) + r.d*j*(m/(j*c)) := by rw[Nat.mul_comm]
+    _ = k + (r.d*(m%(j*c)/c) + r.d*(j*(m/(j*c)))) := by rw[Nat.add_assoc, Nat.mul_assoc]
+    _ = k +  r.d*(m%(j*c)/c   +      j*(m/(j*c))) := by conv => lhs; rhs; rw[←Nat.mul_add]
+  simp_all -- cancel out the k + rd  * (...) on each side
+  left -- ignore the `∨ r.d = 0` case, and resume the calculation:
+  show     m%(j*c)/c + j*(m/(j*c))= m/c
+  calc  m%(j*c)/c + j*(m/(j*c))
+
+--    _ = (m/c)%j   + j*(m/(j*c))  := by rw[Nat.mod_mul_left_div_self]
+--    _ = (m/c)%j   + (j*m)/(j*c)  := by rw?
+--    _ = (m/c)%j   +   (m/c)  := by rw[Nat.mul_div_mul_left m c hj]
+
+
+--- i introduced this m-m% trying to cancel out the j, but i think it makes it unprovable
+    _ = m%(j*c)/c + j*((m-m%(j*c))/(j*c)) := by conv => pattern m/(j*c); rw[Nat.div_eq_sub_mod_div]
+    _ = m%(j*c)/c + c*(j*((m-m%(j*c))/(j*c)))/c := by aesop
+    _ = m%(j*c)/c + ((c*j)*((m-m%(j*c))/(j*c)))/c := by rw [Nat.mul_assoc]
+    _ = m%(j*c)/c + ((j*c)*((m-m%(j*c))/(j*c)))/c := by rw [Nat.mul_comm]
+    _ = m%(j*c)/c   +   (m-m%(j*c))/c := by rw [Nat.mul_div_cancel' (Nat.dvd_sub_mod m)]
+    _ = (m%(j*c)    +    (m-m%(j*c)))/c := by sorry
+    -- ^ if i could prove this line i would be set, but i don't think it's possible
+
+  have : 0<(j*c) := by aesop
+  have : m%(j*c) ≤ m := by exact Nat.mod_le m (j * c)
+  aesop
+
+  -- ideas:
+  -- try to break up the subtraction
+    --       Nat.div_eq_sub_mod_div    : m / n = (m - m % n) / n
+    --       Nat.mod_mul_left_div_self : m % (k * n) / n <= m / n % k
+--    _ = (m/c)%j   +         (m-m%(j*c))/c  := by rw[Nat.mod_mul_left_div_self]
+
+
+#eval (99:Rat)/(100:Rat) + (7:Rat)/(100:Rat) = (106:Rat)/(100:Rat)
+
+
+
+
+    --  x    %a   + a*(x / a % b)
+    -- theorem Nat.mod_mul : x%(a*b)=x % a + a * (x / a % b)
+    --_ = (m/c)%j   + j*((m%(j*c) + m)/(j*c)) := by omega
+
+
+--  calc     m%(j*c)/c + j*(m/(j*c))
+--    _ = c*(m%(j*c)/c + j*(m/(j*c)))/c := by rw[Nat.mul_div_right _ r.hsize]
+
+     --exact Eq.symm (Nat.mul_div_right (m % (j * c) / c + j * (m / (j * c))) r.hsize)
+    --              m*(n/(m*k)) => n/k
+    --_ = m%(j*c)/c + m/c := by rw [Nat.mul_div_mul_left]
+    -- _ = m%(j*c)/c + (j*m)/(j*c) :=
+      -- Nat.mul_div_mul_left{m : Nat} (n : Nat) (k : Nat) (H : 0 < m) :
+      --
+
+
+--    _ = j * (m % (j * c)) /(j*c) + j * (m / (j * c)) := by rw[←Nat.mul_div_mul_left (m % (j*c)) c hj]
+--    _ = j *((m % (j * c))/(j*c)) + j * (m / (j * c)) := by aesop
+--    _ = j * ((m % (j * c)) /(j*c) + (m / (j * c))) := by aesop
+
+
+
+
+
+
+
 
 end « partition »
 
@@ -241,6 +363,13 @@ variable (r: Rake) (p n: Nat) {hp: 0<p}
 
 theorem rem_drop -- rem drops multiples of p
   : p∣n → ¬(∃m, (r.rem p).term m = n) := by
+  intro hpn; rw[term_iff]; push_neg
+  intro k hk x hx
+  -- first show that `partition` isolates all terms that are divisible by p
+  -- this might even be pushed down to ASeq:
+  have aseq_law : ∀p k d m, p∣d → (p∣(aseq k d).term m ↔ p∣k) := sorry
+
+
   sorry
 
 theorem rem_keep -- rem keeps non-multiples of p
