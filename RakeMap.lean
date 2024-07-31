@@ -51,4 +51,4 @@ def rem (rm : RakeMap prop) (x: Nat)
     intro n
     have hs := r₁.sort_term_iff_term n
     apply Iff.intro; all_goals aesop
-  { rake := r₂, hbij := hbij₂, hord := r₂.prop }
+  { rake := r₂, hbij := hbij₂, hord := by simp[r₂.prop] }
