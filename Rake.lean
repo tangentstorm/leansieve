@@ -327,57 +327,71 @@ theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
     -- _ = m%(j*c)/c + (j*m)/(j*c) :=
       -- Nat.mul_div_mul_left{m : Nat} (n : Nat) (k : Nat) (H : 0 < m) :
       --
-
-
 --    _ = j * (m % (j * c)) /(j*c) + j * (m / (j * c)) := by rw[←Nat.mul_div_mul_left (m % (j*c)) c hj]
 --    _ = j *((m % (j * c))/(j*c)) + j * (m / (j * c)) := by aesop
 --    _ = j * ((m % (j * c)) /(j*c) + (m / (j * c))) := by aesop
-
-
-
-
-
-
-
 
 end « partition »
 
 section « rem (remove multiples) »
 
-/-- remove all multiples of `n`. if `n=0`, `Rake.zer` is returned. -/
-def rem (r : Rake) (n : Nat) : Rake :=
-  if hn₀ : n = 0 then zer
-  else
-    have hn : 0 < n := Nat.zero_lt_of_ne_zero hn₀
-    let gcd := r.d.gcd n
-    have hz : 0 < (n/gcd) := Nat.div_gcd_pos_of_pos_right r.d hn
-    let r' := if n∣r.d then r else r.partition (n/gcd) hz
-    let ks := r'.ks |>.filter (λk => ¬n∣k)
-    if hlen: ks.length = 0 then zer
-    else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
+/-- remove all multiples of `n`. -/
+def rem (r : Rake) (n : Nat) (hn: 0<n) : Rake :=
+  -- !! I was going to have be a bit smarter in the general case but
+  --    this makes no difference in RakeSieve because n is always prime
+  -- let gcd := r.d.gcd n
+  -- have hz : 0 < (n/gcd) := Nat.div_gcd_pos_of_pos_right r.d hn
+  -- let r' := if n∣r.d then r else r.partition (n/gcd) hz
+  let r' := r.partition n hn
+  let ks := r'.ks.filter (λk => ¬n∣k)
+  if hlen: ks.length = 0 then zer
+  else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
 
 -- `RakeMap.rem` depends on the correctness of `Rake.rem`.
 -- the following theorems provide this proof.
 
-variable (r: Rake) (p n: Nat) {hp: 0<p}
+variable (r: Rake) (p n: Nat) (hp: 0<p)
 
 theorem rem_drop -- rem drops multiples of p
-  : p∣n → ¬(∃m, (r.rem p).term m = n) := by
-  intro hpn; rw[term_iff]; push_neg
-  intro k hk x hx
-  -- first show that `partition` isolates all terms that are divisible by p
-  -- this might even be pushed down to ASeq:
-  have aseq_law : ∀p k d m, p∣d → (p∣(aseq k d).term m ↔ p∣k) := sorry
-
-
-  sorry
+  : 0<n → p∣n → ¬(∃m, (r.rem p hp).term m = n) := by
+  -- general idea:
+  --   the only way term m = n is if ∃x, ∃k∈r.ks, k + x*d = n
+  --   x would have to be be n/ks.length, but i'm not sure we need that fact
+  --   term_iff supplies this fact.
+  intro hnpos hpn; rw[term_iff]
+  -- we will show no such k exists
+  push_neg; intro k hk x
+  set r' := r.rem p hp; set d' := r'.d
+  -- either rem returns zer, or r'.d=p*r.d and this definition holds:
+  let defks : Prop := r'.ks=(r.partition p hp).ks.filter (λk => ¬p∣k)
+  have : r'=zer ∨ d'=r.d*p ∧ defks := by
+    simp[r',d',rem,partition,defks]
+    split <;> simp_all
+  if hz: r'=zer then
+    -- the r=zer case solves the whole issue because zer only ever returns zero
+    have : k = 0 := by simp_all[zer]
+    have : d' = 0 := by simp[hz,d',zer]
+    simp_all
+    exact Nat.ne_of_lt hnpos
+  else
+    have ⟨hd', hks'⟩ : d'=r.d*p ∧ defks := by simp_all[defks]
+    dsimp[defks] at hks'
+    -- we only have to show ¬p∣k, because `p∣d` so `x*d` cancels out mod p
+    suffices ¬p∣k from by
+      by_contra h
+      have h₀: p ∣ k + x * d' := by rwa[h.symm] at hpn
+      have h₁: p ∣ x * d' := Dvd.dvd.mul_left (Dvd.intro_left r.d hd'.symm) x
+      have : p ∣ k := (Nat.dvd_add_iff_left h₁).mpr h₀
+      contradiction
+    show ¬p∣k
+    simp_all[List.mem_filter]
 
 theorem rem_keep -- rem keeps non-multiples of p
-  : ¬(p∣n) ∧ (∃pm, r.term pm = n) → (∃m, (r.rem p).term m = n) := by
+  : 0<n → ¬(p∣n) ∧ (∃pm, r.term pm = n) → (∃m, (r.rem p hp).term m = n) := by
   sorry
 
 theorem rem_same -- rem introduces no new terms
-  : (∃m, (r.rem p).term m = n) → (∃pm, r.term pm = n) := by
+  : 0<n → (∃m, (r.rem p hp).term m = n) → (∃pm, r.term pm = n) := by
   sorry
 
 end « rem (remove multiples) »
