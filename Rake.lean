@@ -254,7 +254,7 @@ theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j)
 -- given the formula in partition_ks and the new delta (r'.d = r.d*j).
 
 
-theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j)
+theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j) (xhdpos:0 < r.d)
 : ∀m, (r.partition j hj).term m = r.term m := by
   intro m
 
