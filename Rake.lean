@@ -232,14 +232,6 @@ def partition (r:Rake) (j: Nat) (hj:0<j:=by simp): Rake :=
 theorem length_partition (r:Rake) (j: Nat) (hj:0<j)
   : (r.partition j hj).ks.length = j * r.ks.length := by simp[partition]
 
-def r:Rake := { d:=6, ks:=[5,7] } -- 5+6*n    7+6*n
---- partition:  5+6*n → 5+6*(0+5n)  5+6*(1+5n)  5+6*(2+5n)  |7+6*(3+5n)  5+6*(4+5n)
----                     5+30n       11+30n      17+30n      |25+5n
---                     5(1+6n)                              |5(5+n)5
-#guard (r.partition 5).ks = [5, 7, 11, 13, 17, 19, 23, 25, 29, 31]
-#guard r.terms 10 = (r.partition 5).terms 10
-#eval r.terms 10
-
 theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i) (h)
   : (r.partition j hj).ks[i] =
     r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
@@ -249,7 +241,7 @@ theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i) (h)
 
 
 -- i had originally planned to approach it like this:
-theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
+theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j)
 : ∀n, (∃m, (r.partition j hj).term m = n)  ↔ (∃m, r.term m = n) := by
   intro n; rw[term_iff]
   apply Iff.intro
@@ -262,7 +254,7 @@ theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
 -- given the formula in partition_ks and the new delta (r'.d = r.d*j).
 
 
-theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
+theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j)
 : ∀m, (r.partition j hj).term m = r.term m := by
   intro m
 
@@ -306,17 +298,9 @@ theorem partition_term_eq  (r:Rake) (j:Nat) (hj: 0 < j) (hdpos:0 < r.d)
     --       Nat.div_eq_sub_mod_div    : m / n = (m - m % n) / n
     --       Nat.mod_mul_left_div_self : m % (k * n) / n <= m / n % k
 --    _ = (m/c)%j   +         (m-m%(j*c))/c  := by rw[Nat.mod_mul_left_div_self]
-
-
-#eval (99:Rat)/(100:Rat) + (7:Rat)/(100:Rat) = (106:Rat)/(100:Rat)
-
-
-
-
     --  x    %a   + a*(x / a % b)
     -- theorem Nat.mod_mul : x%(a*b)=x % a + a * (x / a % b)
     --_ = (m/c)%j   + j*((m%(j*c) + m)/(j*c)) := by omega
-
 
 --  calc     m%(j*c)/c + j*(m/(j*c))
 --    _ = c*(m%(j*c)/c + j*(m/(j*c)))/c := by rw[Nat.mul_div_right _ r.hsize]
@@ -352,6 +336,10 @@ def rem (r : Rake) (n : Nat) (hn: 0<n) : Rake :=
 
 variable (r: Rake) (p n: Nat) (hp: 0<p)
 
+lemma rem_def (r') (h: r' = r.rem p hp)
+  : r'=zer ∨ (r'.d=r.d*p ∧ r'.ks=(r.partition p hp).ks.filter (λk => ¬p∣k)) := by
+    simp[h,rem,partition]; split <;> simp_all
+
 theorem rem_drop -- rem drops multiples of p
   : 0<n → p∣n → ¬(∃m, (r.rem p hp).term m = n) := by
   -- general idea:
@@ -362,21 +350,13 @@ theorem rem_drop -- rem drops multiples of p
   -- we will show no such k exists
   push_neg; intro k hk x
   set r' := r.rem p hp; set d' := r'.d
-  -- either rem returns zer, or r'.d=p*r.d and this definition holds:
-  let defks : Prop := r'.ks=(r.partition p hp).ks.filter (λk => ¬p∣k)
-  have : r'=zer ∨ d'=r.d*p ∧ defks := by
-    simp[r',d',rem,partition,defks]
-    split <;> simp_all
-  if hz: r'=zer then
-    -- the r=zer case solves the whole issue because zer only ever returns zero
+  -- either rem returns zer, or we can extract the formulas for d and ks
+  obtain hzer | ⟨hd', hks'⟩ := rem_def r p hp r' rfl
+  · -- the r=zer case solves the whole issue because zer only ever returns zero
     have : k = 0 := by simp_all[zer]
-    have : d' = 0 := by simp[hz,d',zer]
-    simp_all
-    exact Nat.ne_of_lt hnpos
-  else
-    have ⟨hd', hks'⟩ : d'=r.d*p ∧ defks := by simp_all[defks]
-    dsimp[defks] at hks'
-    -- we only have to show ¬p∣k, because `p∣d` so `x*d` cancels out mod p
+    have : d' = 0 := by simp[hzer,d',zer]
+    simp_all; exact Nat.ne_of_lt hnpos
+  · -- we only have to show ¬p∣k, because `p∣d` so `x*d` cancels out mod p
     suffices ¬p∣k from by
       by_contra h
       have h₀: p ∣ k + x * d' := by rwa[h.symm] at hpn
@@ -388,11 +368,26 @@ theorem rem_drop -- rem drops multiples of p
 
 theorem rem_keep -- rem keeps non-multiples of p
   : 0<n → ¬(p∣n) ∧ (∃pm, r.term pm = n) → (∃m, (r.rem p hp).term m = n) := by
+  -- this should follow from partition_term_iff and the filter in rem
+  intro hn; simp[term_iff]
+  intro k hk x hx
   sorry
 
 theorem rem_same -- rem introduces no new terms
   : 0<n → (∃m, (r.rem p hp).term m = n) → (∃pm, r.term pm = n) := by
-  sorry
+  -- this follows from partition_term_iff and some fact
+  intro hn; rw[term_iff]; intro h; obtain ⟨k, hk, x, hx⟩ := h
+  set r' := r.rem p hp
+  obtain hzer | ⟨hp', hks'⟩ := rem_def r p hp r' rfl
+  -- hn lets us ignore teh hzer case, since it would lead to a contradiction
+  · have : n = 0 := by simp_all[zer]
+    have : n ≠ 0 := Nat.not_eq_zero_of_lt hn
+    contradiction
+  -- otherwise we can use the definition in hks' to show what we want
+  · have := r.partition_term_iff p hp n
+    rw[term_iff] at this; rw[←this]
+    have : k ∈ (r.partition p hp).ks := by simp_all; exact List.mem_of_mem_filter hk
+    use k; aesop
 
 end « rem (remove multiples) »
 
