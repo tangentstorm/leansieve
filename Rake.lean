@@ -253,8 +253,10 @@ end « partition »
 
 section « rem (remove multiples) »
 
+variable (r: Rake) (j: Nat) (hj: 0<j)
+
 /-- remove all multiples of `j`. -/
-def rem (r : Rake) (j : Nat) (hj: 0<j) : Rake :=
+def rem : Rake :=
   -- !! I was going to have be a bit smarter in the general case but
   --    this makes no difference in RakeSieve because j is always prime
   -- let gcd := r.d.gcd j
@@ -265,16 +267,16 @@ def rem (r : Rake) (j : Nat) (hj: 0<j) : Rake :=
   if hlen: ks.length = 0 then zer
   else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
 
-variable (r: Rake) (j: Nat) (hj: 0<j) {n:Nat}
+variable (r':Rake) (hr': r' = r.rem j hj)
 
-lemma rem_def (r') (h: r' = r.rem j hj)
+lemma rem_def'
   : r'=zer
   ∨ (r'.d=r.d*j ∧ r'.ks=(r.partition j hj).ks.filter (λk => ¬j∣k) ∧ 0<r'.ks.length) := by
-    simp[h,rem,partition]; split <;> simp_all[Nat.zero_lt_of_ne_zero]
+    simp[hr',rem,partition]; split <;> simp_all[Nat.zero_lt_of_ne_zero]
 
-lemma rem_def' (r') (h₀: r' = r.rem j hj) (h₁: ∃n, ¬j∣n ∧ ∃m, r.term m=n)
+theorem rem_def  (h₁: ∃n, ¬j∣n ∧ ∃m, r.term m=n)
   : r'.d=r.d*j ∧ r'.ks=(r.partition j hj).ks.filter (λk => ¬j∣k) ∧ 0<r'.ks.length := by
-  obtain hzer | ⟨hd', hks', hlen'⟩ := rem_def r j hj r' h₀
+  obtain hzer | ⟨hd', hks', hlen'⟩ := rem_def' r j hj r' hr'
   · -- show hzer case cannot happen thanks to h₁
     -- r produces terms that don't divide k, and r.partition produces the same terms.
 
@@ -302,7 +304,7 @@ lemma rem_def' (r') (h₀: r' = r.rem j hj) (h₁: ∃n, ¬j∣n ∧ ∃m, r.ter
       set rpk := (r.partition j hj).ks.filter (λk => ¬j∣k)
       have rk: k ∈ rpk := by simp[hk, hjk, rpk, List.mem_filter]
       have : ¬ rpk.length = 0 := by have := List.ne_nil_of_mem rk; rwa[List.length_eq_zero]
-      have : r'.ks = rpk := by simp[rpk] at this; simp[h₀, rem, this, rpk]
+      have : r'.ks = rpk := by simp[rpk] at this; simp[hr', rem, this, rpk]
       have : r'.ks = [0] := by simp[hzer, zer]
       simp_all[List.mem_singleton]
     contradiction
@@ -310,8 +312,8 @@ lemma rem_def' (r') (h₀: r' = r.rem j hj) (h₁: ∃n, ¬j∣n ∧ ∃m, r.ter
   · -- the other case (non hzer) just passes right through
     exact ⟨hd', hks', hlen'⟩
 
-theorem rem_drop -- rem drops multiples of p
-  : 0<n → j∣n → ¬(∃m, (r.rem j hj).term m = n) := by
+theorem rem_drop  -- rem drops multiples of p
+  : 0<n → j∣n → ¬(∃m, r'.term m = n) := by
   -- general idea:
   --   the only way term m = n is if ∃x, ∃k∈r.ks, k + x*d = n
   --   x would have to be be n/ks.length, but i'm not sure we need that fact
@@ -319,12 +321,13 @@ theorem rem_drop -- rem drops multiples of p
   intro hnpos hpn; rw[term_iff]
   -- we will show no such k exists
   push_neg; intro k hk x
-  set r' := r.rem j hj; set d' := r'.d
+  set d' := r'.d
   -- either rem returns zer, or we can extract the formulas for d and ks
-  obtain hzer | ⟨hd', hks'⟩ := rem_def r j hj r' rfl
+  obtain hzer | ⟨hd', hks', hlen'⟩ := rem_def' r j hj r' hr'
   · -- the r=zer case solves the whole issue because zer only ever returns zero
-    have : k = 0 := by simp_all[zer]
-    have : d' = 0 := by simp[hzer,d',zer]
+    subst hzer
+    have : k = 0 := by simp[zer] at hk; exact hk
+    have : d' = 0 := by simp[d',zer]
     simp_all; exact Nat.ne_of_lt hnpos
   · -- we only have to show ¬p∣k, because `p∣d` so `x*d` cancels out mod p
     suffices ¬j∣k from by
@@ -336,19 +339,17 @@ theorem rem_drop -- rem drops multiples of p
     show ¬j∣k
     simp_all[List.mem_filter]
 
-theorem rem_keep -- rem keeps non-multiples of p
-  : ¬(j∣n) → (∃m, r.term m = n) → (∃m', (r.rem j hj).term m' = n) := by
-  -- this should follow from partition_term_iff and the nature of filter
-  --
+theorem rem_keep  -- rem keeps non-multiples of p
+  : ¬j∣n → (∃m, r.term m = n) → (∃m', r'.term m' = n) := by
+  -- this follows from partition_term_iff and the nature of filter
   intro hpn ht
   have ht' := ht
   -- r produces terms that don't divide k, and r.partition produces the same terms.
   rw[←r.partition_term_iff j hj n, term_iff] at ht'
   -- since r.partition produces n, we can show ¬p∣k for the corresponding k
   obtain ⟨k, hk, x, hx⟩ := ht'
-  set r' := r.rem j hj
   have hex : (∃n, ¬j∣n ∧ ∃m, r.term m = n) := by use n
-  obtain ⟨hd', hks'⟩ := rem_def' r j hj r' rfl hex
+  obtain ⟨hd', hks'⟩ := rem_def r j hj r' hr' hex
   -- !! this duplicates some work from rem_def' ... consolidate?
   have hpk : ¬ j ∣ k := by
     by_contra h
@@ -364,12 +365,11 @@ theorem rem_keep -- rem keeps non-multiples of p
   rw[term_iff]
   use k; aesop
 
-theorem rem_same -- rem introduces no new terms
-  : (∃n, ¬j∣n ∧ ∃m, r.term m = n) → (∃m', (r.rem j hj).term m' = n) → (∃m, r.term m = n) := by
+theorem rem_same  -- rem introduces no new terms
+  : (∃n, ¬j∣n ∧ ∃m, r.term m = n) → (∃m', r'.term m' = n) → (∃m, r.term m = n) := by
   -- this follows from partition_term_iff and the nature of filter.
   intro hex h; rw[term_iff] at h; obtain ⟨k, hk, x, hx⟩ := h
-  set r' := r.rem j hj
-  obtain ⟨hd', hks'⟩ := rem_def' r j hj r' rfl hex
+  obtain ⟨hd', hks'⟩ := rem_def r j hj r' hr' hex
   have := r.partition_term_iff j hj n
   rw[term_iff] at this; rw[←this]
   have : k ∈ (r.partition j hj).ks := by simp_all; exact List.mem_of_mem_filter hk
