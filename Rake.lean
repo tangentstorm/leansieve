@@ -363,16 +363,16 @@ theorem rem_drop -- rem drops multiples of p
     simp_all[List.mem_filter]
 
 theorem rem_keep -- rem keeps non-multiples of p
-  : 0<n → ¬(p∣n) → (∃m, r.term m = n) → (∃m', (r.rem p hp).term m' = n) := by
+  : ¬(p∣n) → (∃m, r.term m = n) → (∃m', (r.rem p hp).term m' = n) := by
   -- this should follow from partition_term_iff and the nature of filter
-  intro hpos hpn ht
+  intro hpn ht
   have ht' := ht
   -- r produces terms that don't divide k, and r.partition produces the same terms.
   rw[←r.partition_term_iff p hp n, term_iff] at ht'
   -- since r.partition produces n, we can show ¬p∣k for the corresponding k
   obtain ⟨k, hk, x, hx⟩ := ht'
   set r' := r.rem p hp
-  have : ¬ p ∣ k := by
+  have hpk : ¬ p ∣ k := by
     by_contra h
     have : p ∣  r.d * p * x := by
       have : p ∣  p * (r.d * x) := Nat.dvd_mul_right p _
@@ -384,9 +384,19 @@ theorem rem_keep -- rem keeps non-multiples of p
     contradiction
   obtain hzer | ⟨hp', hks'⟩ := rem_def r p hp r' rfl
   · -- the r'=zer case can't actually happen here, because ht:r.term m = n and hpn:¬p∣n.
-    sorry
+    -- we can't really take advantage of a `0 < n` hypothesis here, because we have to
+    -- make the argument *after* applying `rem`, and in this proof, that's the conclusion.
+    have h₀: k ≠ 0 := by by_contra h; have := Nat.dvd_zero p; rw[h] at hpk; contradiction
+    have h₁: k = 0 := by
+      set rpk := (r.partition p hp).ks.filter (λk => ¬p∣k)
+      have rk: k ∈ rpk := by simp[hk, hpk, rpk, List.mem_filter]
+      have : ¬ rpk.length = 0 := by have := List.ne_nil_of_mem rk; rwa[List.length_eq_zero]
+      have : r'.ks = rpk := by simp[rpk] at this; simp[r', rem, this, rpk]
+      have : r'.ks = [0] := by simp[hzer, zer]
+      simp_all[List.mem_singleton]
+    contradiction
   · -- for the normal case,
-    have : k ∈ r'.ks := by simp[hk, hks', this, List.mem_filter]
+    have : k ∈ r'.ks := by simp[hk, hks', hpk, List.mem_filter]
     rw[term_iff]
     use k; aesop
 
