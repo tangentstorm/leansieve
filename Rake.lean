@@ -237,7 +237,6 @@ theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i) (h)
     r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
   := by simp[partition]
 
--- i had originally planned to approach it like this:
 theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j)
 : ∀n, (∃m, (r.partition j hj).term m = n)  ↔ (∃m, r.term m = n) := by
   intro n; rw[term_iff]
@@ -343,6 +342,7 @@ theorem rem_drop -- rem drops multiples of p
 theorem rem_keep -- rem keeps non-multiples of p
   : ¬(p∣n) → (∃m, r.term m = n) → (∃m', (r.rem p hp).term m' = n) := by
   -- this should follow from partition_term_iff and the nature of filter
+  --
   intro hpn ht
   have ht' := ht
   -- r produces terms that don't divide k, and r.partition produces the same terms.
@@ -350,6 +350,9 @@ theorem rem_keep -- rem keeps non-multiples of p
   -- since r.partition produces n, we can show ¬p∣k for the corresponding k
   obtain ⟨k, hk, x, hx⟩ := ht'
   set r' := r.rem p hp
+  have hex : (∃n, ¬p∣n ∧ ∃m, r.term m = n) := by use n
+  obtain ⟨hp', hks'⟩ := rem_def' r p hp r' rfl hex
+  -- !! this duplicates some work from rem_def' ... consolidate?
   have hpk : ¬ p ∣ k := by
     by_contra h
     have : p ∣  r.d * p * x := by
@@ -360,39 +363,20 @@ theorem rem_keep -- rem keeps non-multiples of p
       have : (r.partition p hp).d = r.d * p := by aesop
       rwa[←hx, this,Nat.mul_comm] at hpn
     contradiction
-  obtain hzer | ⟨hp', hks'⟩ := rem_def r p hp r' rfl
-  · -- the r'=zer case can't actually happen here, because ht:r.term m = n and hpn:¬p∣n.
-    -- we can't really take advantage of a `0 < n` hypothesis here, because we have to
-    -- make the argument *after* applying `rem`, and in this proof, that's the conclusion.
-    have h₀: k ≠ 0 := by by_contra h; have := Nat.dvd_zero p; rw[h] at hpk; contradiction
-    have h₁: k = 0 := by
-      set rpk := (r.partition p hp).ks.filter (λk => ¬p∣k)
-      have rk: k ∈ rpk := by simp[hk, hpk, rpk, List.mem_filter]
-      have : ¬ rpk.length = 0 := by have := List.ne_nil_of_mem rk; rwa[List.length_eq_zero]
-      have : r'.ks = rpk := by simp[rpk] at this; simp[r', rem, this, rpk]
-      have : r'.ks = [0] := by simp[hzer, zer]
-      simp_all[List.mem_singleton]
-    contradiction
-  · -- for the normal case,
-    have : k ∈ r'.ks := by simp[hk, hks', hpk, List.mem_filter]
-    rw[term_iff]
-    use k; aesop
+  have : k ∈ r'.ks := by simp[hk, hks', hpk, List.mem_filter]
+  rw[term_iff]
+  use k; aesop
 
 theorem rem_same -- rem introduces no new terms
-  : (¬∃m, ¬p∣r.term m) → (∃m', (r.rem p hp).term m' = n) → (∃m, r.term m = n) := by
+  : (∃n, ¬p∣n ∧ ∃m, r.term m = n) → (∃m', (r.rem p hp).term m' = n) → (∃m, r.term m = n) := by
   -- this follows from partition_term_iff and the nature of filter.
-  intro hn h; rw[term_iff] at h; obtain ⟨k, hk, x, hx⟩ := h
+  intro hex h; rw[term_iff] at h; obtain ⟨k, hk, x, hx⟩ := h
   set r' := r.rem p hp
-  obtain hzer | ⟨hp', hks'⟩ := rem_def r p hp r' rfl
-  -- hn lets us ignore the hzer case, since it would lead to a contradiction
-  · have : n = 0 := by simp_all[zer]
-    have : n ≠ 0 := sorry
-    contradiction
-  -- otherwise we can use the definition in hks' to show what we want
-  · have := r.partition_term_iff p hp n
-    rw[term_iff] at this; rw[←this]
-    have : k ∈ (r.partition p hp).ks := by simp_all; exact List.mem_of_mem_filter hk
-    use k; aesop
+  obtain ⟨hp', hks'⟩ := rem_def' r p hp r' rfl hex
+  have := r.partition_term_iff p hp n
+  rw[term_iff] at this; rw[←this]
+  have : k ∈ (r.partition p hp).ks := by simp_all; exact List.mem_of_mem_filter hk
+  use k; aesop
 
 end « rem (remove multiples) »
 
