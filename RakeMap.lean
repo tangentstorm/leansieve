@@ -13,7 +13,7 @@ namespace RakeMap
 open Rake
 
 def pred {p:Nat → Prop} (_:RakeMap p) : Nat → Prop := p
-def term (rm: RakeMap p) (n:Nat) := rm.rake.term n
+@[simp] def term (rm: RakeMap p) (n:Nat) := rm.rake.term n
 
 theorem min_term_zero (rm:RakeMap p)  : ∀ n, (rm.term 0 ≤ rm.term n) :=
   @Rake.sorted_min_term_zero rm.rake rm.hord

@@ -17,7 +17,8 @@ namespace RakeSieve
 open RakeMap
 
 def init : RakeSieve :=
-  let rm := rm_ge2 |>.rem 2
+  let rm : RakeMap (λn => n≥2 ∧ ¬2∣n) := rm_ge2 |>.rem 2 (by simp) (by
+    use 3; use 1; simp[rm_ge2, Rake.ge2, Rake.term])
   let p := ⟨2, Nat.prime_two⟩
   { prop := rm.pred, rm := rm, p := p, c := 3,
     hprop := by
