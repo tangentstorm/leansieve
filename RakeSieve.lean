@@ -59,42 +59,64 @@ def init : RakeSieve :=
       -- now we can use hrr to prove ¬2∣2, which is absurd
       have := Nat.prime_two; aesop }
 
-def next (rm₀ : RakeSieve) (hC₀: Nat.Prime rm₀.c) (hNS: nosk' rm₀.p rm₀.c): RakeSieve :=
-  let h₀ := rm₀.prop
-  have hh₀ : ∀n, h₀ n ↔ n ∈ R rm₀.p := rm₀.hprop
-  have hCR₀ := rm₀.hCinR
-  have hpgt:PrimeGt rm₀.p rm₀.c := by
+def next (rs₀ : RakeSieve) (hC₀: Nat.Prime rs₀.c) (hNS: nosk' rs₀.p rs₀.c): RakeSieve :=
+  let h₀ := rs₀.prop
+  have hh₀ : ∀n, h₀ n ↔ n ∈ R rs₀.p := rs₀.hprop
+  have hCR₀ := rs₀.hCinR
+  have hpgt:PrimeGt rs₀.p rs₀.c := by
     constructor
     · exact hC₀
-    · exact r_gt_p (↑rm₀.p) rm₀.c hCR₀
-  have hmin: ∀ q < rm₀.c, ¬PrimeGt (↑rm₀.p) q := by
+    · exact r_gt_p (↑rs₀.p) rs₀.c hCR₀
+  have hmin: ∀ q < rs₀.c, ¬PrimeGt (↑rs₀.p) q := by
     simp_all; intro q hq hq'; apply hNS at hq'; omega
-  let m : MinPrimeGt rm₀.p := { p:=rm₀.c, hpgt:=hpgt, hmin:=hmin}
-  let rm := rm₀.rm.rem m.p
-  let c₁ := rm.rake.term 0
-  have hc₁: ∃ i, rm.rake.term i = c₁ := by
-    exact exists_apply_eq_apply (fun a => rm.rake.term a) 0
-  let h₁ := rm.pred
-  have hh₁ : ∀n, h₁ n ↔ h₀ n ∧ ¬(m.p∣n) := by simp[h₁, RakeMap.pred]
-  have hprop : ∀n, h₁ n ↔ n ∈ R m.p := by
+  let c' : MinPrimeGt rs₀.p := { p:=rs₀.c, hpgt:=hpgt, hmin:=hmin}
+
+  -- to call `rem`, we have to prove that it won't remove everything.
+  -- so we must produce a proof that another prime besides c exists.
+  have : ∃n m, ¬c'.p ∣ n ∧ rs₀.rm.term m = n := by
+    simp_all[←rs₀.rm.hbij,h₀,hh₀,R]
+    have hC₀ : Nat.Prime rs₀.c := by aesop -- simp_all removes it :(
+    -- let's just find any prime q greater than C
+    obtain ⟨q, ⟨hqgt,hq⟩⟩ : (∃q, rs₀.c < q ∧ Nat.Prime q) := Nat.exists_infinite_primes _
+    use q
+    split_ands
+    · show ¬rs₀.c ∣ q
+      simp[Nat.Prime.dvd_iff_eq hq (Nat.Prime.ne_one hC₀)]
+      exact Nat.ne_of_lt' hqgt
+    · show 2 ≤ q
+      exact Nat.Prime.two_le hq
+    · show ∀ q' ≤ ↑rs₀.p, Nat.Prime q' → ¬q'∣q
+      intro q' hq'le hq'
+      have : q ≠ q' := by omega
+      rwa[Nat.Prime.dvd_iff_eq hq]
+      exact Nat.Prime.ne_one hq'
+
+  -- now we can use this fact to remove multiples of c
+  let rs := rs₀.rm.rem c'.p (Nat.Prime.pos hC₀) this
+  let c₁ := rs.rake.term 0
+  have hc₁: ∃ i, rs.rake.term i = c₁ := by
+    exact exists_apply_eq_apply (fun a => rs.rake.term a) 0
+  let h₁ := rs.pred
+  have hh₁ : ∀n, h₁ n ↔ h₀ n ∧ ¬(c'.p∣n) := by simp[h₁, RakeMap.pred]
+  have hprop : ∀n, h₁ n ↔ n ∈ R c'.p := by
     intro n; exact r_next_prop (hh₀ n) (hh₁ n)
-  { prop := rm.pred, rm := rm, p := ⟨m.p, hC₀⟩, c := c₁,
+  { prop := rs.pred, rm := rs, p := ⟨c'.p, hC₀⟩, c := c₁,
     hprop := hprop
     hCinR := by
-      show c₁ ∈ R m.p
-      · have : h₁ c₁ := by rw[← rm.hbij] at hc₁; exact hc₁
+      show c₁ ∈ R c'.p
+      · have : h₁ c₁ := by rw[← rs.hbij] at hc₁; exact hc₁
         specialize hprop c₁
         exact hprop.mp this
     hRmin := by
       dsimp[c₁,p,h₁] at *
       intro r hr
-      have : ∃k, rm.rake.term k = r := by
-        have : rm₀.c = m.p := by rfl
-        conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹rm₀.c=m.p›, rm.hbij r]
+      have : ∃k, rs.rake.term k = r := by
+        have : rs₀.c = c'.p := by rfl
+        conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹rs₀.c=c'.p›, rs.hbij r]
         exact hr
       obtain ⟨k, hk⟩ := this
       rw[←hk]
-      exact rm.min_term_zero k }
+      exact rs.min_term_zero k }
 
 instance : PrimeSieveState RakeSieve where
   P x := x.p
