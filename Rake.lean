@@ -36,7 +36,7 @@ theorem term_simp (r:Rake) (n:Nat)
   let i: Fin r.ks.length := ⟨n%r.ks.length, Nat.mod_lt n r.hsize⟩
   use r.ks[i]
   apply And.intro
-  · dsimp[term, aseq, ASeq.term, i]
+  · dsimp[term, i]
   · use i
 
 theorem term_iff (r:Rake)
@@ -73,7 +73,7 @@ theorem term_iff (r:Rake)
 
     -- now we run this definition of `n` through `r.term n` and
     -- once we deal with annoying divmod issues, out comes the result.
-    use n; unfold_let; dsimp[term, aseq, ASeq.term]; simp_all[hi₁]
+    use n; unfold_let; dsimp[term]; simp_all[hi₁]
     rw[Nat.add_mul_div_right i.val x r.hsize, ←hi₁, Nat.mul_comm]
     simp; exact hx
 
@@ -103,7 +103,7 @@ theorem unused__ex_seq (r: Rake)
     calc
       n = (aseq r.ks[m%q] r.d).term (m/q) := by simp[hmn]
       _ = (aseq k r.d).term (m/q) := by rfl
-      _ = k + r.d * (m/q) := by unfold aseq ASeq.term; simp_all
+      _ = k + r.d * (m/q) := by simp_all
 
 end « sequences »
 

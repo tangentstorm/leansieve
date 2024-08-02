@@ -26,7 +26,7 @@ instance : Ord ASeq where
     | .eq => compare s1.d s2.d
     | ord => ord
 
-def aseq (k:Nat) (d:Nat) := ASeq.mk k d
+@[simp] def aseq (k:Nat) (d:Nat) := ASeq.mk k d
 
 namespace ASeq
 
@@ -36,7 +36,7 @@ def evens := aseq 0 2
 def odds  := aseq 1 2
 
 -- apply formula to n
-def term (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
+@[simp] def term (s : ASeq) (n : Nat) : Nat := s.k + s.d * n
 
 -- you can coerce an ASeq a function
 instance : CoeFun ASeq fun _ => Nat → Nat := ⟨term⟩
