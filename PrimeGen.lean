@@ -65,7 +65,6 @@ section simple_gen
 
 end simple_gen
 
-
 /- function power. apply f recursively n times to x₀ and collect the results -/
 def fpow (f : α → α) (n:Nat) (x₀ : α) : List α :=
   let rec aux (n:Nat) (x:α) (acc:List α) :=
@@ -73,9 +72,9 @@ def fpow (f : α → α) (n:Nat) (x₀ : α) : List α :=
     else aux (n-1) (f x) (x::acc)
   aux (n-1) x₀ [] |>.reverse
 
-#eval fpow (λn => n+1) 10 0
+#guard fpow (λn => n+1) 10 0 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 def primes (α : Type) [pg: PrimeGen α] (n : Nat) : List NPrime :=
   fpow (fun g => pg.next g) n pg.init |>.map fun g => pg.P g
 
-#eval primes SimpleGen 10
+#guard (primes SimpleGen 10 |>.map (·.val)) = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
