@@ -232,22 +232,59 @@ def partition (r:Rake) (j: Nat) (hj:0<j:=by simp): Rake :=
 theorem length_partition (r:Rake) (j: Nat) (hj:0<j)
   : (r.partition j hj).ks.length = j * r.ks.length := by simp[partition]
 
-theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i) (h)
-  : (r.partition j hj).ks[i] =
-    r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
+theorem partition_ks (r:Rake) (j: Nat) (hj:0<j) (i') (hi')
+  : (r.partition j hj).ks[i'] =
+    r.ks[i'%r.ks.length]'(List.mod_length r.ks i' r.hsize) + (i'/r.ks.length) * r.d
   := by simp[partition]
 
-theorem partition_term_iff  (r:Rake) (j:Nat) (hj: 0 < j)
-: ∀n, (∃m, (r.partition j hj).term m = n)  ↔ (∃m, r.term m = n) := by
-  intro n; rw[term_iff]
-  apply Iff.intro
-  all_goals
-    intro h
-    obtain ⟨k, hk₀, hk₁⟩ := h
-  · sorry -- eventually "use m"
-  · sorry -- eventually specialize the hypothesis h using (??)
--- then translate each side into the ∃ k form, and show that i can express either side in terms of the other,
--- given the formula in partition_ks and the new delta (r'.d = r.d*j).
+variable (r:Rake) (j:Nat) (hj: 0 < j) (r':Rake) (hr':r' = r.partition j hj)
+
+theorem partition_term_old : ∀n, (∃m, r'.term m = n) → (∃m, r.term m = n) := by
+  -- `partition` changes `d` and `ks` but keeps a permutation of the terms.
+  -- we use term_iff so we can argue in terms of `.ks` before and after.
+  intro n; repeat rw[term_iff]
+
+  -- note that r'.d := r.d*j by the definition of `partition`
+  (have : r'.d = r.d*j := by simp[hr', partition]); simp only[this]; clear this
+
+  -- we can now write the goal like so:
+  show (∃ k' ∈ r'.ks, ∃ x', k' + x' * (r.d * j) = n) → ∃ k ∈ r.ks, ∃ x, k + x * r.d = n
+
+  -- introduce variables for the left side such that
+  -- hik: (r'[i']=k)   and   hx': k' + x' + r.d * j= n
+  intro ⟨k', hk', x', hx'⟩
+  obtain ⟨⟨i', hi'⟩, hik⟩ : ∃(i': Fin r'.ks.length), _:= by
+    rw[List.mem_iff_get] at hk'; exact hk'
+
+  show ∃ k ∈ r.ks, ∃ x, k + x * r.d = n
+  -- we already have a theorem that relates the indices of k and k'
+  -- derived from the definition of `partition`.
+  have hks := partition_ks r j hj
+  specialize hks i' (by rw[←hr']; exact hi')
+  set i  := i' % r.ks.length with hi
+  set k  := r.ks[i]'(List.mod_length r.ks i' r.hsize) with hk
+  set x  := i' / r.ks.length with hx
+  use k
+  apply And.intro
+  · exact List.get_mem r.ks i _
+  · simp[←hr',hik] at hks
+    open Nat in rw[mul_comm,hks,mul_comm,add_assoc,mul_assoc,←mul_add,mul_comm] at hx'
+    use x + j * x'
+
+theorem partition_term_new : ∀n, (∃m, r.term m = n) → (∃m, r'.term m = n) := by
+  -- in this direction, each ksᵢ gets partitioned into *multiple* constants,
+  -- so there's a one-to-many mapping, like so:
+  --           [ks₀, ks₁, ..., ks₀+d, ks₁+d, ..., ksₙ₋₁+d×(j-1)]
+  intro n
+  have := hj
+  have := hr'
+  sorry
+
+theorem partition_term_iff
+: ∀n, (∃m, (r.partition j hj).term m = n) ↔ (∃m, r.term m = n) :=
+  λn => Iff.intro
+    (partition_term_old r j hj (r.partition j hj) rfl n)
+    (partition_term_new r j hj (r.partition j hj) rfl n)
 
 end « partition »
 
