@@ -1,1 +1,0 @@
--- https://leanprover.zulipchat.com/#narrow/stream/113488-general/topic/Large-ish.20computation.20without.20Lean.2EofReduceBool
