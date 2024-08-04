@@ -5,6 +5,7 @@ import MathLib.Data.List.Sort
 import Mathlib.Data.List.Dedup
 import Mathlib.Data.List.Basic
 import Mathlib.Data.List.Perm
+import Mathlib.Tactic.Qify
 
 structure Rake : Type where
   d     : Nat
@@ -273,65 +274,69 @@ theorem partition_term_same : ∀n, (∃m', r'.term m' = n) → (∃m, r.term m 
     open Nat in rw[mul_comm,hdef,mul_comm,add_assoc,mul_assoc,←mul_add,mul_comm] at hx'
     use x + j * x'
 
-theorem partition_term_keep : ∀n, (∃m, r.term m = n) → (∃m, r'.term m = n) := by
+theorem partition_term_keep : ∀t, (∃n, r.term n = t) → (∃n, r'.term n = t) := by
   /- In this direction, each sequence `ksᵢ + d` gets partitioned into
     *multiple* sequences. There are exactly `j` new sequences, arranged like so:
 
     `  r.ks  = [ks₀, ks₁, ..., ksₖ₋₁]`
-    `  r'.ks = [ks₀, ks₁, ..., ks₀+d, ks₁+d, ..., ksₖ₋₁+d×(j-1)]`
+    `  r'.ks = [ks₀, ks₁, ..., ks₀+d, ks₁+d, ..., ks[z]₋₁+d×(j-1)]`
 
-    Since `r.term m = r.ks[(i := m % K)] + r.d * (m / K)`, and
+    Since `r.term n = r.ks[(i := n % z)] + d * (n /z)`, and
     `r'.ks.length` is a multiple of `r.ks.length`, the terms come out
     in the exact same order.
 
-    To prove this, we first use `k_of_term` to expand the formula for `r.term m`: -/
-  intro n ⟨m, hm⟩
-  set K := r.ks.length with hK
-  obtain ⟨k, hk, i, hi, hki, hn⟩ := r.k_of_term (hm: r.term m = n)
+    To prove this, we first use `k_of_term` to expand the formula for `r.term n`: -/
+  intro t ⟨n, hn⟩
+  simp[term_iff]
 
+  show ∃ k' ∈ r'.ks, ∃ x', k' + x' * r'.d = t
 
-  -- this was a neat approach but it didn't work out:
-  -- now we are ready to show the goal. we can't use `k_of_term` to directly
-  -- obtain `k'` because that requires a proof of the form that `r'.term m = n`
-  -- and that's what we're trying to prove. However, we *can* use it to
-  -- extract a formula mapping an `i'` that we derive ourselves
-  obtain ⟨k', hk', i', hi', hki', hm'⟩ := r'.k_of_term <| r'.term m |> Eq.refl
+  set z':= r'.ks.length with hz'
+  set i' : Fin z':= ⟨n%z', Nat.mod_lt n r'.hsize⟩ with hi'
+  set k' := r'.ks[i'] with hk'
 
+  obtain ⟨k, hk, i, hi, hki, ht⟩ := r.k_of_term (hn: r.term n = t)
 
+  have := r'.hsize; have := r.hsize
+  have hd'd: r'.d = r.d * j := by simp[hr', partition]
+  have hz'z: r'.ks.length = (r.ks.length * j) := by rw[hr',length_partition,Nat.mul_comm]
+  have hi'i: i'%r.ks.length = i := by simp_all
 
-  -- !! too bad i didn't realize that before I did all this:
-  -- set K' := r'.ks.length with hK'; have : 0< K' := r'.hsize
-  -- set i' : Fin K' := ⟨m % K', (List.mod_length r'.ks m this)⟩ with hi'
-  -- set k' := r'.ks[i'] with hk'
+  -- map the new constant to the old one
+  have hdef: k' = r.ks[i'%r.ks.length] + i'/r.ks.length * r.d := by
+    have := partition_def r j hj i' (by have := i'.prop; simp_all)
+    aesop
 
-  -- we now have names for all the pieces of the state before and after
-  -- the `partition` but we still need some formulas that relate the two
-  -- states. that's `partition_def` and `length_partition`
-  have hi'': i' < (r.partition j hj).ks.length := by have := i'.prop; simp[←hr']
-  have := partition_def r j hj i' hi''
+  use k'
+  apply And.intro
+  · show k' ∈ r'.ks
+    exact List.get_mem r'.ks (n % z') (Fin.val_lt_of_le i' (le_refl z'))
+  · use n/z'
+    set z := r.ks.length with hz
+    set t' := k' + n / z' * r'.d with ht'
+    subst ht
+    show t' = k  + r.d  * (n / z)
+    -- need to show each step is a valid index
+    -- have h: (i'%z) < z := by exact List.mod_length r.ks (↑i') r.hsize
+    have ix: ∀i, (i%z) < z := λi => List.mod_length r.ks i r.hsize
+    have := r.hsize; have := r'.hsize
 
-  have hdef: r'.ks[i'] = r.ks[i'.val%K]'(List.mod_length r.ks i' r.hsize) + i'/K * r.d := by
-    simp[←hr'] at this; exact this
-
-  show ∃ m, r'.term m = n
-  use m; simp[←hm]
-  show r'.term m = r.term m
-
-  rw[hn, hki] at hm
-  rw[    hki', hdef, ] at hm'
-  rw[hm,hm']
-  have := hm
-  have := hm'
-  have := And.intro hm hm' -- just to watch
-
-  have := Nat.div_add_mod' m r.ks.length
-  have := Nat.div_add_mod' m r'.ks.length
-
-  set K' := r'.ks.length with hK'
-  have hjK': K' = j * K := by simp_all only[length_partition r j hj]
-
-  set x' := m / K' with hx'
-  sorry
+    calc t' = k' + n/z' * r'.d     := ht'
+      _=      k' + r'.d * (n/z')   := by rw[Nat.mul_comm]
+      _= (r.ks[i'%z]'_     + i'/z * r.d) + r'.d * (n/z') := by rw[hdef]
+      _= (r.ks[n%z]'(ix n) + i'/z * r.d) + r'.d * (n/z') := by simp[hi'i,hi,hz,hz',hz'z]
+      _= (r.ks[n%z]'(ix n) + i'/z * r.d) + r.d * j * (n/(z *j)) := by simp[hi,hd'd,hz',hz,hz'z]
+      _= k + i'/z * r.d + r.d * (j * (n/(z *j))) := by simp_all; rw[Nat.mul_assoc]
+      _= k + r.d * (i'/z + j * (n/(z *j))) := by rw[Nat.add_assoc, Nat.mul_comm, Nat.mul_add]
+      _= k + r.d * ((n%z')/z + j * (n/(z *j))) := by simp[hi',hz']
+      _= k + r.d * (n%(z*j)/z + j * (n/(z *j))) := by simp[hz'z,hz']
+      _= k + r.d * ((n%(z*j)/z) + j * (n/(z *j))) := by omega
+      _= k + r.d * (((n/z)%j) + j * (n/(z *j))) := by rw[Nat.mod_mul_right_div_self]
+      -----------------------------------------------------
+      _= k + r.d * ((n/z)%j + j * (n/(z*j))) := by rfl
+      _= k + r.d * ((n/z)%j + j * ((n/z)/j)) := by sorry
+      ------------------------------------------------------
+      _= k + r.d * (n / z)        := by rw[Nat.mod_add_div (n/z) j]
 
 theorem partition_term_iff
 : ∀n, (∃m, (r.partition j hj).term m = n) ↔ (∃m, r.term m = n) :=
