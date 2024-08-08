@@ -44,13 +44,13 @@ theorem term_iff (r:Rake)
   intro m; apply Iff.intro
   · show (∃ n, r.term n = m) → ∃ k ∈ r.ks, ∃ x, k + x * r.d = m
     -- this is just grunt work, but it follows from the definition of term
-    intro ⟨n,hn⟩; obtain ⟨k, hk₀, hk₁, hk₂, hk₃⟩ := r.term_simp n
+    intro ⟨n,hn⟩; obtain ⟨k, hk, i, hi, hki⟩ := r.term_simp n
     use k; apply And.intro
-    · simp_all[List.mem_iff_get];
-    · use (n/r.ks.length); subst hk₃ hn; simp_all;
+    · simp[List.mem_iff_get]; use i; exact hki.symm
+    · use (n/r.ks.length); subst hki hn; simp_all;
       exact Nat.mul_comm (n / r.ks.length) r.d
 
-  . show (∃ k ∈ r.ks, ∃ x, k + x * r.d = m) → ∃ n, r.term n = m
+  · show (∃ k ∈ r.ks, ∃ x, k + x * r.d = m) → ∃ n, r.term n = m
     -- in other words, given some k in our list and an arbitrary x
     -- the rake ought to produce m = k + x * r.d at some point. we prove
     -- this by working backwards to calculate what n we have to plug
@@ -195,35 +195,15 @@ end « sort and dedup »
 section « rake operations »
 
 section « partition »
+
+lemma List.mod_length {α : Type} (l:List α) (i:Nat) (hl: 0 < l.length)
+  : (i % l.length) < l.length := by exact Nat.mod_lt (↑i) hl
+
 /--
 Partition each sequence in the rake by partitioning their *inputs*
 into equivalance classes mod n. This multiplies the number of sequences
 by n. We can't allow n to be zero because then we'd have no sequences left,
 and this would break the guarantee that term (n) < term n+1. -/
-def unused__________partition₀ (r: Rake) (j: Nat) (hj: 0 < j): Rake :=
-  let seqs' := r.seqs.map (λ s => s.partition j) |>.join
-  let ks₀ := seqs'.map (λ s => s.k)
-  -- aseq.partiton n  always produces a list of length n
-  have hsize := by
-    have hlen₀: 0 < seqs'.length := by
-      unfold_let; rw[List.length_join']; simp
-      have : (List.length ∘ λs:ASeq=> s.partition j) = λ_ => j := by
-        calc (List.length ∘ λ s => s.partition j)
-          _ = λs:ASeq => (s.partition j).length := by rfl
-          _ = λ_:ASeq => j := by conv=> lhs; simp[ASeq.length_partition]
-      have : 0 < r.seqs.length := by unfold seqs; simp[List.length_map, r.hsize]
-      simp_all -- this introduces "replicate" because the lengths are all the same.
-      show 0 < Nat.sum (List.replicate r.seqs.length j)
-      have sum_rep {x y: Nat} : Nat.sum (List.replicate x y) = x*y := by
-        induction x; simp_all; case succ hx => simp[hx]; linarith
-      simp_all
-    have : ks₀.length = seqs'.length := List.length_map seqs' _
-    aesop
-  { d := r.d * j, ks := ks₀, sorted := false, hsize := hsize }
-
-lemma List.mod_length {α : Type} (l:List α) (i:Nat) (hl: 0 < l.length)
-  : (i % l.length) < l.length := by exact Nat.mod_lt (↑i) hl
-
 def partition (r:Rake) (j: Nat) (hj:0<j:=by simp): Rake :=
   let ks' := List.range (j*r.ks.length) |>.map λi =>
     r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
@@ -255,21 +235,21 @@ theorem partition_term_same : ∀n, (∃m', r'.term m' = n) → (∃m, r.term m 
   -- introduce variables for the left side such that
   -- hik: (r'[i']=k)   and   hx': k' + x' + r.d * j= n
   intro ⟨k', hk', x', hx'⟩
-  obtain ⟨⟨i', hi'⟩, hik⟩ : ∃(i': Fin r'.ks.length), _:= by
+  obtain ⟨i', hik'⟩ : ∃(i': Fin r'.ks.length), _:= by
     rw[List.mem_iff_get] at hk'; exact hk'
 
   show ∃ k, k ∈ r.ks ∧ ∃ x, k + x * r.d = n
   -- we already have a theorem that relates the indices of k and k'
   -- derived from the definition of `partition`.
   have hdef := partition_def r j hj
-  specialize hdef i' (by rw[←hr']; exact hi')
+  specialize hdef i' (by rw[←hr']; exact i'.prop)
   set i  := i' % r.ks.length with hi
   set k  := r.ks[i]'(List.mod_length r.ks i' r.hsize) with hk
   set x  := i' / r.ks.length with hx
   use k
   apply And.intro
   · exact List.get_mem r.ks i _
-  · simp[←hr',hik] at hdef
+  · replace hdef : k' = k + x * r.d := by simp_all
     open Nat in rw[mul_comm,hdef,mul_comm,add_assoc,mul_assoc,←mul_add,mul_comm] at hx'
     use x + j * x'
 
@@ -442,7 +422,7 @@ theorem rem_same (hnm: HasNonMultiple r j) -- rem introduces no new terms
   obtain ⟨hd', hks'⟩ := rem_def r hj r' hr' hnm
   have := r.partition_term_iff j hj n
   rw[term_iff] at this; rw[←this]
-  have : k ∈ (r.partition j hj).ks := by simp_all; exact List.mem_of_mem_filter hk
+  have : k ∈ (r.partition j hj).ks := by simp_all
   use k; aesop
 
 end « rem (remove multiples) »

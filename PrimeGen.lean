@@ -1,5 +1,6 @@
 -- PrimeGen: a specification for algorithms that generate prime numbers.
-import Mathlib.Data.Nat.Prime
+import Mathlib.Data.Nat.Prime.Basic
+import Mathlib.Data.Nat.Find
 import Mathlib.Tactic.Linarith.Frontend
 
 def NPrime : Type := { n: Nat // Nat.Prime n } deriving Repr, Ord, LT, LE
@@ -65,12 +66,16 @@ section simple_gen
 
 end simple_gen
 
-/- function power. apply f recursively n times to x₀ and collect the results -/
+/- function power. apply f recursively n times to x₀ and collect the results.
+  (!! lean has `f^[n] x` but this doesn't collect intermediate results. maybe
+  another version exists?) -/
 def fpow (f : α → α) (n:Nat) (x₀ : α) : List α :=
   let rec aux (n:Nat) (x:α) (acc:List α) :=
     if n = 0 then x::acc
     else aux (n-1) (f x) (x::acc)
   aux (n-1) x₀ [] |>.reverse
+
+set_option linter.hashCommand false
 
 #guard fpow (λn => n+1) 10 0 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 

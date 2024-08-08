@@ -178,7 +178,7 @@ theorem hs_suffice (α : Type) [PrimeSieveState α] [PrimeSieveDriver α] (g:α)
   :  (Nat.Prime (C g)) ∧ (C g > P g) ∧ (¬∃ q, Nat.Prime q ∧ P g < q ∧  q < C g) := by
     split_ands
     · exact c_prime α g
-    . exact c_gt_p α g
+    · exact c_gt_p α g
     · exact no_skipped_prime α g
 
 def nextState {α : Type} [PrimeSieveState α] [PrimeSieveDriver α] (s: α) : α :=
