@@ -1,9 +1,8 @@
 import Lake
 open Lake DSL
 
-package treesiv {}
+package leansieve {}
 
-lean_lib Treesiv {}
 lean_lib PrimeGen { }
 lean_lib PrimeSieve { }
 lean_lib ASeq { }
@@ -12,7 +11,7 @@ lean_lib RakeMap { }
 lean_lib RakeSieve { }
 
 @[default_target]
-lean_exe treesiv {
+lean_exe leansieve {
   root := `Main}
 
 require mathlib from git
