@@ -1,9 +1,7 @@
 -- ASeq: Arithmetic Sequences
 import Mathlib.Tactic.Linarith
 import Batteries.Data.List.Lemmas
-
-syntax "assert" term : command
-macro_rules | `(assert $x) => `(example : $x := by decide)
+set_option linter.hashCommand false
 
 structure ASeq where  -- arithmetic sequence (k + dn)
   k : Nat  -- constant
@@ -41,14 +39,14 @@ def odds  := aseq 1 2
 -- you can coerce an ASeq a function
 instance : CoeFun ASeq fun _ => Nat → Nat := ⟨term⟩
 
-assert (aseq 0 2) 10 = 20
+#guard (aseq 0 2) 10 = 20
 
 -- generate n terms of a sequence
 def terms (s : ASeq) (n : Nat) : List Nat := List.range n |>.map λ i => term s i
 
-assert terms nats  10 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-assert terms evens 10 = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
-assert terms odds  10 = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+#guard terms nats  10 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+#guard terms evens 10 = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+#guard terms odds  10 = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
 
 -- apply one formula to another: r(n) := s(t(n))
 def compose (s t: ASeq) : ASeq := aseq (s.k + s.d * t.k) (s.d * t.d)
@@ -110,7 +108,7 @@ theorem gte_same_delta (s : ASeq) (n : Nat) : (s.gte n).d = s.d := by
   else if hsd : n ≤ s.d then simp [hsd, hsk]
   else simp[hsk,hsd]
 
-assert terms evens 10          = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
-assert terms (evens.gte 5) 10  = [         6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
+#guard terms evens 10          = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+#guard terms (evens.gte 5) 10  = [         6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
 
 end ASeq
