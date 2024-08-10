@@ -48,7 +48,7 @@ For example:
 3 + 2(2 + 3n) = 7 + 6n
 
 # partition on new prime 5.
-5 + 6(0 + 5n) = 5  + 30n  # discard
+5 + 6(0 + 5n) = 5  + 30n # = 5(1+6n), so discard
 7 + 6(0 + 5n) = 7  + 30n
 5 + 6(1 + 5n) = 11 + 30n
 7 + 6(1 + 5n) = 13 + 30n
