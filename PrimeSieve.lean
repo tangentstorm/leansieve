@@ -140,10 +140,10 @@ lemma no_prime_factors_im_no_factors {c:Nat} -- c is a candidate prime
         Nat.exists_prime_and_dvd ‹m ≠ 1›
       have : p∣c := Nat.dvd_trans hpm hmdc
       have : ¬(p∣c) := by
-        have : 0 < c := by linarith
+        have : 0 < c := by omega
         have : 0 < m := Nat.pos_of_dvd_of_pos hmdc this
         have : p ≤ m := Nat.le_of_dvd this hpm
-        have : p < c := by linarith
+        have : p < c := by omega
         exact hnpf p this hp'
       contradiction
     exact Nat.prime_def_lt.mpr ⟨‹2 ≤ c› , this⟩

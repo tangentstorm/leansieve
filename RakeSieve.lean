@@ -33,8 +33,9 @@ def init : RakeSieve :=
         · rw[← hbij] at hn; exact hn.left
         · intro q hq hq'
           simp[←hbij] at hn
-          have := Nat.Prime.two_le hq'
-          have : 2=q := by omega
+          have hp2 : (p : Nat) = 2 := rfl
+          have hq2 : 2 ≤ q := Nat.Prime.two_le hq'
+          have : 2 = q := by omega
           rw[this] at hn
           omega
       case mpr =>
@@ -46,8 +47,10 @@ def init : RakeSieve :=
         exact hn2' Nat.prime_two
     hCinR := by
       -- clearly 3 isn't divisible by 2, so is in r
-      unfold R; simp; intro q _ hq'
-      have : q = 2 := by rw[Nat.prime_def_lt] at hq'; omega
+      unfold R; simp; intro q hqle hq'
+      have hp2 : (p : Nat) = 2 := rfl
+      have hq2 : 2 ≤ q := Nat.Prime.two_le hq'
+      have : q = 2 := by omega
       aesop
     hRmin := by
       -- to show that every number in R 2 is ≥ 3,
@@ -74,22 +77,21 @@ def next (rs₀ : RakeSieve) (hC₀: Nat.Prime rs₀.c) (hNS: nosk' rs₀.p rs�
   -- to call `rem`, we have to prove that it won't remove everything.
   -- so we must produce a proof that another prime besides c exists.
   have : ∃n m, ¬c'.p ∣ n ∧ rs₀.rm.term m = n := by
-    simp_all[←rs₀.rm.hbij,h₀,hh₀,R]
-    have hC₀ : Nat.Prime rs₀.c := by aesop -- simp_all removes it :(
-    -- let's just find any prime q greater than C
-    obtain ⟨q, ⟨hqgt,hq⟩⟩ : (∃q, rs₀.c < q ∧ Nat.Prime q) := Nat.exists_infinite_primes _
-    use q
-    split_ands
-    · show ¬rs₀.c ∣ q
-      simp[Nat.Prime.dvd_iff_eq hq (Nat.Prime.ne_one hC₀)]
-      exact Nat.ne_of_lt' hqgt
-    · show 2 ≤ q
-      exact Nat.Prime.two_le hq
-    · show ∀ q' ≤ ↑rs₀.p, Nat.Prime q' → ¬q'∣q
-      intro q' hq'le hq'
-      have : q ≠ q' := by omega
-      rwa[Nat.Prime.dvd_iff_eq hq]
-      exact Nat.Prime.ne_one hq'
+    have hC₀' : Nat.Prime rs₀.c := hC₀
+    obtain ⟨q, hqgt, hq⟩ : ∃ q, rs₀.c.succ ≤ q ∧ Nat.Prime q := Nat.exists_infinite_primes rs₀.c.succ
+    have hqR : q ∈ R rs₀.p := by
+      unfold R
+      constructor
+      · exact Nat.Prime.two_le hq
+      · intro q' hq'le hq' hdiv
+        have : q' = q := Nat.prime_dvd_prime_iff_eq hq' hq |>.mp hdiv
+        omega
+    have hqprop : rs₀.prop q := (hh₀ q).mpr hqR
+    obtain ⟨m, hm⟩ := (rs₀.rm.hbij q).mp hqprop
+    refine ⟨q, m, ?_, hm⟩
+    intro hdiv
+    have : rs₀.c = q := Nat.prime_dvd_prime_iff_eq hC₀' hq |>.mp hdiv
+    omega
 
   -- now we can use this fact to remove multiples of c
   let rs := rs₀.rm.rem c'.p (Nat.Prime.pos hC₀) this
@@ -97,7 +99,9 @@ def next (rs₀ : RakeSieve) (hC₀: Nat.Prime rs₀.c) (hNS: nosk' rs₀.p rs�
   have hc₁: ∃ i, rs.rake.term i = c₁ := by
     exact exists_apply_eq_apply (fun a => rs.rake.term a) 0
   let h₁ := rs.pred
-  have hh₁ : ∀n, h₁ n ↔ h₀ n ∧ ¬(c'.p∣n) := by simp[h₁, RakeMap.pred]
+  have hh₁ : ∀n, h₁ n ↔ h₀ n ∧ ¬(c'.p∣n) := by
+    intro n
+    rfl
   have hprop : ∀n, h₁ n ↔ n ∈ R c'.p := by
     intro n; exact r_next_prop (hh₀ n) (hh₁ n)
   { prop := rs.pred, rm := rs, p := ⟨c'.p, hC₀⟩, c := c₁,
@@ -111,9 +115,7 @@ def next (rs₀ : RakeSieve) (hC₀: Nat.Prime rs₀.c) (hNS: nosk' rs₀.p rs�
       dsimp[c₁,p,h₁] at *
       intro r hr
       have : ∃k, rs.rake.term k = r := by
-        have : rs₀.c = c'.p := by rfl
-        conv at hr => rw[←(hprop r), hh₁]; dsimp[h₀]; rw[‹rs₀.c=c'.p›, rs.hbij r]
-        exact hr
+        exact (rs.hbij r).mp ((hprop r).mpr hr)
       obtain ⟨k, hk⟩ := this
       rw[←hk]
       exact rs.min_term_zero k }

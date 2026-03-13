@@ -1,6 +1,6 @@
 import ASeq
 import PrimeGen
-import MathLib.Data.List.Sort
+import Mathlib.Data.List.Sort
 
 structure ASeqPrimeSieve where
   d : Nat               -- d : delta for all sequences. a primorial

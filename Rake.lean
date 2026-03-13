@@ -1,10 +1,16 @@
 -- For the purposes of this library, a "Rake" is a sorted
 -- list of arithmetic sequences that share the same delta.
 import ASeq
-import MathLib.Data.List.Sort
+import Mathlib.Data.List.Sort
 import Mathlib.Data.List.Dedup
 import Mathlib.Data.List.Basic
-import Mathlib.Data.List.Perm
+import Mathlib.Data.List.Perm.Basic
+
+namespace List
+
+abbrev Sorted {α : Type _} (r : α → α → Prop) (l : List α) : Prop := l.Pairwise r
+
+end List
 
 structure Rake : Type where
   d     : Nat
@@ -68,14 +74,29 @@ theorem term_iff (r:Rake)
 
     -- now we can choose n so that r.term n picks k=ks[ i ] as the constant.
     -- this happens ∀ n, i = n % r.ks.length ∧ x = n / r.ks.length
-    have hi₁: i.val % r.ks.length = i := by exact Nat.mod_eq_of_lt i.prop
+    have hi₁ : i.val % r.ks.length = i.val := Nat.mod_eq_of_lt i.prop
     let n := (i.val % r.ks.length) + (x * r.ks.length)
 
     -- now we run this definition of `n` through `r.term n` and
     -- once we deal with annoying divmod issues, out comes the result.
-    use n; unfold_let; dsimp[term]; simp_all[hi₁]
-    rw[Nat.add_mul_div_right i.val x r.hsize, ←hi₁, Nat.mul_comm]
-    simp; exact hx
+    use n
+    have hmod : (n % r.ks.length) = i.val := by
+      dsimp [n]
+      calc
+        (i.val % r.ks.length + x * r.ks.length) % r.ks.length = (i.val % r.ks.length) % r.ks.length := by
+          rw [Nat.add_mul_mod_self_right]
+        _ = i.val % r.ks.length := Nat.mod_mod _ _
+        _ = i.val := Nat.mod_eq_of_lt i.prop
+    have hdiv : (n / r.ks.length) = x := by
+      dsimp [n]
+      rw [Nat.add_mul_div_right _ _ r.hsize, Nat.div_eq_of_lt (Nat.mod_lt _ r.hsize)]
+      simp
+    calc
+      r.term n = r.ks[i] + x * r.d := by
+        dsimp [term]
+        simp [hmod, hdiv, Nat.mul_comm]
+      _ = k + x * r.d := by simpa using congrArg (fun t => t + x * r.d) hi₀
+      _ = m := hx
 
 end « terms »
 
@@ -100,7 +121,7 @@ theorem k_of_term (r: Rake) (hmn: r.term m = n)
   set k := r.ks[m%q] with hk; use k
   split_ands
   · show k ∈ r.ks
-    exact List.get_mem r.ks (m % q) hmq
+    exact List.get_mem r.ks ⟨m % q, hmq⟩
   · set i : Fin _ := ⟨m%q, Nat.mod_lt m r.hsize⟩ with hi
     use i
     split_ands
@@ -116,11 +137,11 @@ def sort_nodup (xs:List Nat) (hxs₀ : List.Nodup xs)
 : { xs':List Nat // List.Sorted (·<·) xs' ∧ xs'.Perm xs
     ∧ xs.length = xs'.length ∧ xs'.Nodup } :=
   let xs' := xs.mergeSort (·≤·)
-  have hnodup : xs'.Nodup := xs.perm_mergeSort (·≤·) |>.nodup_iff |>.mpr hxs₀
-  have hsorted: List.Sorted (·≤·) xs' := List.sorted_mergeSort (·≤·) xs
+  have hnodup : xs'.Nodup := (List.mergeSort_perm xs (·≤·)).nodup_iff.mpr hxs₀
+  have hsorted : xs'.SortedLE := List.sortedLE_mergeSort (l := xs)
   have hlength := by simp_all only [List.length_mergeSort, xs']
-  have hperm : xs'.Perm xs := List.perm_mergeSort (·≤·) xs
-  ⟨xs', And.intro (List.Sorted.lt_of_le hsorted hnodup)
+  have hperm : xs'.Perm xs := List.mergeSort_perm xs (·≤·)
+  ⟨xs', And.intro (List.SortedLE.sortedLT_of_nodup hsorted hnodup |>.pairwise)
     (And.intro hperm (And.intro hlength hnodup))⟩
 
 def sort (r: Rake) : {r':Rake // r'.d=r.d ∧ r'.sorted ∧ r'.ks.Perm r.ks.dedup } :=
@@ -137,11 +158,14 @@ def sort (r: Rake) : {r':Rake // r'.d=r.d ∧ r'.sorted ∧ r'.ks.Perm r.ks.dedu
   have ⟨hsort, hperm, hlength, hnodup⟩  := ks₂.prop
   have hlen₁ : ks₁.length ≠ 0 := by have:=r.hsize; aesop
   have hsize := Nat.lt_of_lt_of_eq (Nat.zero_lt_of_ne_zero hlen₁) hlength
-  ⟨{ d:=r.d, ks:=ks₂, hsort:=λ_=>hsort, huniq:=λ_=>hnodup, hsize:=_}, (by aesop)⟩
+  ⟨{ d:=r.d, ks:=ks₂, hsort:=λ_=>hsort, huniq:=λ_=>hnodup, hsize:=hsize}, by
+    refine ⟨rfl, ?_, hperm⟩
+    show true = true
+    rfl⟩
 
 lemma length_pos_of_dedup {l:List Nat} (hlen: 0 < l.length) : 0 < l.dedup.length := by
   obtain ⟨hd, tl, hcons⟩ := List.exists_cons_of_length_pos hlen
-  have : hd ∈ l := by rw[hcons]; exact List.mem_cons_self hd tl
+  have : hd ∈ l := by rw [hcons]; simp
   rw[←List.mem_dedup] at this
   exact List.length_pos_of_mem this
 
@@ -173,7 +197,8 @@ theorem sorted_min_term_zero (r: Rake) (hr: r.sorted) : ∀ n, (r.term 0 ≤ r.t
 
 theorem sort_term_iff_term  (r:Rake) (n:Nat)
   : (∃m, r.term m = n) ↔ (∃m', r.sort.val.term m' = n) := by
-  if h: r.sorted then unfold sort; aesop
+  if h: r.sorted then
+    constructor <;> intro hm <;> simpa [sort, h] using hm
   else
     let ⟨rs, ⟨hd, hsort, hperm⟩⟩ := r.sort; simp
     have : ∀k, k∈rs.ks ↔ k∈r.ks.dedup := fun k => List.Perm.mem_iff hperm
@@ -207,7 +232,7 @@ and this would break the guarantee that term (n) < term n+1. -/
 def partition (r:Rake) (j: Nat) (hj:0<j:=by simp): Rake :=
   let ks' := List.range (j*r.ks.length) |>.map λi =>
     r.ks[i%r.ks.length]'(List.mod_length r.ks i r.hsize) + (i/r.ks.length) * r.d
-  have : ks'.length = j*r.ks.length := by simp[ks', r.hsize]
+  have : ks'.length = j*r.ks.length := by simp [ks']
   have := r.hsize
   { d:= r.d*j, ks := ks', sorted:=false, hsize:=by aesop }
 
@@ -220,9 +245,8 @@ theorem partition_def (r:Rake) (j: Nat) (hj:0<j) (i') (hi')
     r.ks[i'%r.ks.length]'(List.mod_length r.ks i' r.hsize) + (i'/r.ks.length) * r.d
   := by simp[partition]
 
-variable (r:Rake) (j:Nat) (hj: 0 < j) (r':Rake) (hr':r' = r.partition j hj)
-
-theorem partition_term_same : ∀n, (∃m', r'.term m' = n) → (∃m, r.term m = n) := by
+theorem partition_term_same (r:Rake) (j:Nat) (hj: 0 < j) (r':Rake) (hr':r' = r.partition j hj)
+  : ∀n, (∃m', r'.term m' = n) → (∃m, r.term m = n) := by
   -- `partition` changes `d` and `ks` but keeps a permutation of the terms.
   -- we use term_iff so we can argue in terms of `.ks` before and after.
   intro n; repeat rw[term_iff]
@@ -248,12 +272,13 @@ theorem partition_term_same : ∀n, (∃m', r'.term m' = n) → (∃m, r.term m 
   set x  := i' / r.ks.length with hx
   use k
   apply And.intro
-  · exact List.get_mem r.ks i _
+  · exact List.get_mem r.ks ⟨i, by simpa [i] using List.mod_length r.ks i' r.hsize⟩
   · replace hdef : k' = k + x * r.d := by simp_all
     open Nat in rw[mul_comm,hdef,mul_comm,add_assoc,mul_assoc,←mul_add,mul_comm] at hx'
     use x + j * x'
 
-theorem partition_term_keep : ∀t, (∃n, r.term n = t) → (∃n, r'.term n = t) := by
+theorem partition_term_keep (r:Rake) (j:Nat) (hj: 0 < j) (r':Rake) (hr':r' = r.partition j hj)
+  : ∀t, (∃n, r.term n = t) → (∃n, r'.term n = t) := by
   /- In this direction, each sequence `ksᵢ + d` gets partitioned into
     *multiple* sequences. There are exactly `j` new sequences, arranged like so:
 
@@ -274,31 +299,46 @@ theorem partition_term_keep : ∀t, (∃n, r.term n = t) → (∃n, r'.term n = 
   obtain ⟨k, _, i, hi, hki, ht⟩ := r.k_of_term (hn: r.term n = t)
   set i' : Fin z':= ⟨n%z', Nat.mod_lt n r'.hsize⟩ with hi'
   set k' := r'.ks[i'] with hk'
+  have hi'_val : (i' : Nat) = n % z' := by simp [hi']
 
   -- map the new constant to the old one
   have hdef: k' = k + i'/z * r.d := by
-    have := partition_def r j hj i' (by have := i'.prop; simp_all)
-    simp_all
+    have hpart := partition_def r j hj i' (by simpa [hr', length_partition, hz', z] using i'.prop)
+    have hidx : (↑i' % r.ks.length) = n % r.ks.length := by
+      rw [hi'_val, hz'z, Nat.mod_mul_right_mod]
+    have hkidx : r.ks[↑i' % r.ks.length] = k := by
+      simpa [hidx, hi] using hki.symm
+    calc
+      k' = r.ks[↑i' % r.ks.length] + (↑i' / r.ks.length) * r.d := by
+        simpa [hr', hk'] using hpart
+      _ = k + (↑i' / z) * r.d := by
+        simpa [z] using congrArg (fun t => t + (↑i' / z) * r.d) hkidx
 
   show ∃ k' ∈ r'.ks, ∃ x', k' + x' * r'.d = t
   use k'
   apply And.intro
   · show k' ∈ r'.ks
-    exact List.get_mem r'.ks (n % z') (Fin.val_lt_of_le i' (le_refl z'))
+    exact List.get_mem r'.ks i'
   · use n/z'; subst ht; rw[Nat.mul_comm]
     set  t':= k' + r'.d * (n/z') with ht'
     show t' = k  + r.d  * (n/z)  -- we need to remove the `'` on `r'.d` and `z'`
-    calc t' = k + i'/z * r.d + (r.d * j) * (n/(z *j))  := by simp_all[hr',partition]
+    calc t' = k + i'/z * r.d + (r.d * j) * (n/(z *j))  := by simp_all [partition]
       _= k + r.d * (i'/z + j * (n/(z *j)))             :=
          by rw[Nat.mul_assoc, Nat.add_assoc, Nat.mul_comm, Nat.mul_add]
-      _= k + r.d * ((n%(z*j)/z) + j * (n/(z *j)))      := by simp[hz'z,hz']
+      _= k + r.d * ((n%(z*j)/z) + j * (n/(z *j)))      := by
+         have hiDiv : ↑i' / z = n % (z * j) / z := by rw [hi'_val, hz'z]
+         rw [hiDiv]
       _= k + r.d * (((n/z)%j) + j * (n/(z *j)))        := by rw[Nat.mod_mul_right_div_self]
       _= k + r.d * ((n/z)%j + j * ((n/z)/j))           :=
-         by simp; left; left; exact Eq.symm (Nat.div_div_eq_div_mul n z j)
+         by
+           simp [z]
+           left
+           left
+           exact Eq.symm (Nat.div_div_eq_div_mul n z j)
       _= k + r.d * (n / z)                             := by rw[Nat.mod_add_div (n/z) j]
 
-theorem partition_term_iff
-: ∀n, (∃m, (r.partition j hj).term m = n) ↔ (∃m, r.term m = n) :=
+theorem partition_term_iff (r:Rake) (j:Nat) (hj: 0 < j)
+  : ∀n, (∃m, (r.partition j hj).term m = n) ↔ (∃m, r.term m = n) :=
   λn => Iff.intro
     (partition_term_same r j hj (r.partition j hj) rfl n)
     (partition_term_keep r j hj (r.partition j hj) rfl n)
@@ -322,14 +362,12 @@ def rem : Rake :=
   else { d := r'.d, ks:=ks, sorted := false, hsize := Nat.zero_lt_of_ne_zero hlen }
 
 abbrev HasNonMultiple (j:Nat): Prop := ∃n, ¬j∣n ∧ ∃m, r.term m=n
-variable (r': Rake) (hr': r' = r.rem hj)
-
-lemma rem_def'
+lemma rem_def' (r:Rake) {j: Nat} (hj: 0<j) (r': Rake) (hr': r' = r.rem hj)
   : r'=zer
   ∨ (r'.d=r.d*j ∧ r'.ks=(r.partition j hj).ks.filter (λk => ¬j∣k) ∧ 0<r'.ks.length) := by
     simp[hr',rem,partition]; split <;> simp_all[Nat.zero_lt_of_ne_zero]
 
-theorem rem_def (hnm: HasNonMultiple r j)
+theorem rem_def (r:Rake) {j: Nat} (hj: 0<j) (r': Rake) (hr': r' = r.rem hj) (hnm: HasNonMultiple r j)
   : r'.d=r.d*j ∧ r'.ks=(r.partition j hj).ks.filter (λk => ¬j∣k) ∧ 0<r'.ks.length := by
   obtain hzer | ⟨hd', hks', hlen'⟩ := rem_def' r hj r' hr'
   · -- show hzer case cannot happen thanks to h₁
@@ -358,16 +396,19 @@ theorem rem_def (hnm: HasNonMultiple r j)
     have : k = 0 := by
       set rpk := (r.partition j hj).ks.filter (λk => ¬j∣k)
       have rk: k ∈ rpk := by simp[hk, hjk, rpk, List.mem_filter]
-      have : ¬ rpk.length = 0 := by have := List.ne_nil_of_mem rk; rwa[List.length_eq_zero]
-      have : r'.ks = rpk := by simp[rpk] at this; simp[hr', rem, this, rpk]
+      have hlen : rpk.length ≠ 0 := Nat.ne_of_gt (List.length_pos_of_mem rk)
+      have hnot : ¬ ∀ a ∈ (r.partition j hj).ks, j ∣ a := by
+        intro hall
+        exact hjk (hall k hk)
+      have : r'.ks = rpk := by simp [hr', rem, rpk, hnot]
       have : r'.ks = [0] := by simp[hzer, zer]
-      simp_all[List.mem_singleton]
+      simp_all
     contradiction
 
   · -- the non-zer case just passes through
     exact ⟨hd', hks', hlen'⟩
 
-theorem rem_drop (hnm: HasNonMultiple r j) -- rem drops multiples of j
+theorem rem_drop (r:Rake) {j: Nat} (hj: 0<j) (r': Rake) (hr': r' = r.rem hj) (hnm: HasNonMultiple r j)
   : ∀n, j∣n → ¬(∃m, r'.term m = n) := by
   -- general idea:
   --   the only way term m = n is if ∃x, ∃k∈r.ks, k + x*d = n
@@ -389,7 +430,7 @@ theorem rem_drop (hnm: HasNonMultiple r j) -- rem drops multiples of j
   show ¬j∣k
   simp_all[List.mem_filter]
 
-theorem rem_keep  -- rem keeps non-multiples of j
+theorem rem_keep (r:Rake) {j: Nat} (hj: 0<j) (r': Rake) (hr': r' = r.rem hj)
   : ∀n, ¬j∣n → (∃m, r.term m = n) → (∃m', r'.term m' = n) := by
   -- this follows from partition_term_iff and the nature of filter
   intro n hjn ht
@@ -415,7 +456,7 @@ theorem rem_keep  -- rem keeps non-multiples of j
   rw[term_iff]
   use k; aesop
 
-theorem rem_same (hnm: HasNonMultiple r j) -- rem introduces no new terms
+theorem rem_same (r:Rake) {j: Nat} (hj: 0<j) (r': Rake) (hr': r' = r.rem hj) (hnm: HasNonMultiple r j)
   : ∀n, (∃m', r'.term m' = n) → (∃m, r.term m = n) := by
   -- this follows from partition_term_iff and the nature of filter.
   intro n h; rw[term_iff] at h; obtain ⟨k, hk, x, hx⟩ := h

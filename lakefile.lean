@@ -15,4 +15,4 @@ lean_exe leansieve {
   root := `Main}
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4"
+  "https://github.com/leanprover-community/mathlib4" @ "master"

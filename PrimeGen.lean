@@ -1,5 +1,6 @@
 -- PrimeGen: a specification for algorithms that generate prime numbers.
 import Mathlib.Data.Nat.Prime.Basic
+import Mathlib.Data.Nat.Prime.Infinite
 import Mathlib.Data.Nat.Find
 import Mathlib.Tactic.Linarith.Frontend
 
@@ -35,7 +36,7 @@ section simple_gen
       Nat.exists_infinite_primes d
     use p; constructor
     · exact hprime
-    · linarith
+    · omega
 
   def min_prime_gt (n: Nat) : MinPrimeGt n :=
     let e := ex_prime_gt n
@@ -56,11 +57,9 @@ section simple_gen
     next := .next
     hP' g := by  -- goal: no prime q between g.p and (g.next.p = g.c.p)
       -- why? that would imply prime_gt (g.p) q, but hmin contradicts this
-      unfold SimpleGen.next; simp; intro q hq' qgtp
-      have h0 := g.c.hmin; by_contra hq; simp_all
-      apply h0 at hq
-      apply hq at hq'
-      omega
+      intro h
+      rcases h with ⟨q, hq, hgt, hlt⟩
+      exact (g.c.hmin q hlt) ⟨hq, hgt⟩
 
   open PrimeGen
 

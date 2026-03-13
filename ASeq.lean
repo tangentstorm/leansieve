@@ -10,10 +10,18 @@ deriving Repr
 
 def ASeq.le (a b: ASeq) := if a.d = b.d then a.k≤b.k else a.d<b.d
 instance : LE ASeq where le := ASeq.le
-instance : IsTotal ASeq (·≤·) := by
-  apply IsTotal.mk; intro a b;
-  dsimp[LE.le]; dsimp[ASeq.le]
-  split_ifs; all_goals omega
+instance : Std.Total (α := ASeq) (·≤·) where
+  total a b := by
+    change (if a.d = b.d then a.k ≤ b.k else a.d < b.d) ∨
+      (if b.d = a.d then b.k ≤ a.k else b.d < a.d)
+    by_cases h : a.d = b.d
+    · rw [if_pos h, if_pos h.symm]
+      exact Nat.le_total a.k b.k
+    · have h' : b.d ≠ a.d := by
+        intro hba
+        exact h hba.symm
+      rw [if_neg h, if_neg h']
+      exact lt_or_gt_of_ne h
 
 instance : Inhabited ASeq where
   default := .mk 0 1
@@ -64,7 +72,7 @@ def partition (s : ASeq) (n : Nat) : List ASeq :=
 
 theorem length_partition {s: ASeq} {n: Nat}
   : (s.partition n).length = n := by
-    simp[partition, List.length_range n]
+    simp [partition]
 
 instance : ToString ASeq where
   toString s :=
@@ -86,7 +94,7 @@ def gte (s : ASeq) (n : Nat) : ASeq :=
 protected lemma self_lt_mul_div_add (n d : Nat) (hd: d > 0) : n ≤ d * (n/d + 1) := by
   set r := n % d with hr
   set q := n / d with hq
-  simp[← hq]
+  simp
   have : d * (n/d) + (n % d) = n := Nat.div_add_mod n d
   have : r + d * q = n := by rw[←hq, ←hr] at this; linarith
   have : r < d := Nat.mod_lt n hd
